@@ -544,3 +544,252 @@ export function pairFlow(
   return flow * direction;
 }
 
+
+// ---- Constraint solver kernel ---------------------------------------------
+//
+// Projected Gauss-Seidel solve of (J W J^T) lambda = right with per-row
+// limits, mirroring src/physics/gaussSeidelSleSolver.ts operation for
+// operation. The host copies J, W, right, limits and the warm-start x into
+// the arena, calls solverSolve, and reads x back.
+
+const SLE_E: i32 = 2; // entries (bodies) per constraint row
+const SLE_S: i32 = 3; // values per block (x, y, theta)
+const SLE_EMPTY: i32 = 0xff;
+
+let sleArena: usize = 0;
+let sleMaxRows: i32 = 0;
+let sleMaxBodies: i32 = 0;
+
+// Host-visible arena regions.
+let sleJ: usize = 0;
+let sleW: usize = 0;
+let sleRight: usize = 0;
+let sleLimits: usize = 0;
+let sleX: usize = 0;
+let sleBlocks: usize = 0;
+
+// Internal scratch.
+let sleBucketStart: usize = 0;
+let sleBucketFill: usize = 0;
+let sleBucketRow: usize = 0;
+let sleBucketEntry: usize = 0;
+let sleAcc: usize = 0;
+let sleTouched: usize = 0;
+let sleInTouched: usize = 0;
+let sleRowStart: usize = 0;
+let sleDiagonal: usize = 0;
+let sleColIndex: usize = 0;
+let sleValues: usize = 0;
+let sleCapacity: i32 = 0;
+
+export function solverReserve(maxRows: i32, maxBodies: i32): i32 {
+  const jBytes = <usize>maxRows * SLE_E * SLE_S * 8;
+  const wBytes = <usize>maxBodies * SLE_S * 8;
+  const rowBytes = <usize>maxRows * 8;
+  const blockBytes = (<usize>maxRows * SLE_E + 7) & ~<usize>7;
+
+  const arenaBytes = jBytes + wBytes + rowBytes * 4 + blockBytes;
+  sleArena = heap.alloc(arenaBytes);
+  sleMaxRows = maxRows;
+  sleMaxBodies = maxBodies;
+
+  let p = sleArena;
+  sleJ = p;
+  p += jBytes;
+  sleW = p;
+  p += wBytes;
+  sleRight = p;
+  p += rowBytes;
+  sleLimits = p;
+  p += rowBytes * 2;
+  sleX = p;
+  p += rowBytes;
+  sleBlocks = p;
+
+  sleBucketStart = heap.alloc(<usize>(maxBodies + 1) * 4);
+  sleBucketFill = heap.alloc(<usize>(maxBodies + 1) * 4);
+  sleBucketRow = heap.alloc(<usize>maxRows * SLE_E * 4);
+  sleBucketEntry = heap.alloc(<usize>maxRows * SLE_E * 4);
+  sleAcc = heap.alloc(<usize>maxRows * 8);
+  sleTouched = heap.alloc(<usize>maxRows * 4);
+  sleInTouched = heap.alloc(<usize>maxRows);
+  memory.fill(sleInTouched, 0, <usize>maxRows);
+  sleRowStart = heap.alloc(<usize>(maxRows + 1) * 4);
+  sleDiagonal = heap.alloc(<usize>maxRows * 8);
+  sleCapacity = 0;
+
+  return <i32>sleArena;
+}
+
+// @ts-ignore: decorator
+@inline
+function f64At(p: usize, i: i32): f64 {
+  return load<f64>(p + (<usize>i << 3));
+}
+
+// @ts-ignore: decorator
+@inline
+function setF64(p: usize, i: i32, v: f64): void {
+  store<f64>(p + (<usize>i << 3), v);
+}
+
+// @ts-ignore: decorator
+@inline
+function i32At(p: usize, i: i32): i32 {
+  return load<i32>(p + (<usize>i << 2));
+}
+
+// @ts-ignore: decorator
+@inline
+function setI32(p: usize, i: i32, v: i32): void {
+  store<i32>(p + (<usize>i << 2), v);
+}
+
+function buildSystemMatrix(n: i32, bodyCount: i32): void {
+  const rowStride = SLE_E * SLE_S;
+
+  for (let b = 0; b <= bodyCount; ++b) setI32(sleBucketStart, b, 0);
+
+  for (let i = 0; i < n; ++i) {
+    for (let k = 0; k < SLE_E; ++k) {
+      const b = <i32>load<u8>(sleBlocks + <usize>(i * SLE_E + k));
+      if (b != SLE_EMPTY) setI32(sleBucketStart, b + 1, i32At(sleBucketStart, b + 1) + 1);
+    }
+  }
+
+  for (let b = 0; b < bodyCount; ++b) {
+    setI32(sleBucketStart, b + 1, i32At(sleBucketStart, b + 1) + i32At(sleBucketStart, b));
+    setI32(sleBucketFill, b, i32At(sleBucketStart, b));
+  }
+
+  for (let i = 0; i < n; ++i) {
+    for (let k = 0; k < SLE_E; ++k) {
+      const b = <i32>load<u8>(sleBlocks + <usize>(i * SLE_E + k));
+      if (b == SLE_EMPTY) continue;
+      const slot = i32At(sleBucketFill, b);
+      setI32(sleBucketFill, b, slot + 1);
+      setI32(sleBucketRow, slot, i);
+      setI32(sleBucketEntry, slot, k);
+    }
+  }
+
+  // Worst case one entry per (row, body-sharing row) pair.
+  let capacity = 0;
+  for (let i = 0; i < n; ++i) {
+    for (let k = 0; k < SLE_E; ++k) {
+      const b = <i32>load<u8>(sleBlocks + <usize>(i * SLE_E + k));
+      if (b == SLE_EMPTY) continue;
+      capacity += i32At(sleBucketStart, b + 1) - i32At(sleBucketStart, b);
+    }
+  }
+
+  if (capacity > sleCapacity) {
+    if (sleColIndex != 0) {
+      sleColIndex = heap.realloc(sleColIndex, <usize>capacity * 4);
+      sleValues = heap.realloc(sleValues, <usize>capacity * 8);
+    } else {
+      sleColIndex = heap.alloc(<usize>capacity * 4);
+      sleValues = heap.alloc(<usize>capacity * 8);
+    }
+    sleCapacity = capacity;
+  }
+
+  let nnz = 0;
+  for (let i = 0; i < n; ++i) {
+    setI32(sleRowStart, i, nnz);
+    let touchedCount = 0;
+    setF64(sleDiagonal, i, 0);
+
+    for (let k = 0; k < SLE_E; ++k) {
+      const b = <i32>load<u8>(sleBlocks + <usize>(i * SLE_E + k));
+      if (b == SLE_EMPTY) continue;
+
+      const iBase = i * rowStride + k * SLE_S;
+      const a0 = f64At(sleW, b * SLE_S + 0) * f64At(sleJ, iBase + 0);
+      const a1 = f64At(sleW, b * SLE_S + 1) * f64At(sleJ, iBase + 1);
+      const a2 = f64At(sleW, b * SLE_S + 2) * f64At(sleJ, iBase + 2);
+
+      const end = i32At(sleBucketStart, b + 1);
+      for (let p = i32At(sleBucketStart, b); p < end; ++p) {
+        const j = i32At(sleBucketRow, p);
+        const jBase = j * rowStride + i32At(sleBucketEntry, p) * SLE_S;
+
+        const dot =
+          a0 * f64At(sleJ, jBase + 0) + a1 * f64At(sleJ, jBase + 1) + a2 * f64At(sleJ, jBase + 2);
+
+        if (j == i) {
+          setF64(sleDiagonal, i, f64At(sleDiagonal, i) + dot);
+        } else if (load<u8>(sleInTouched + <usize>j) == 0) {
+          store<u8>(sleInTouched + <usize>j, 1);
+          setI32(sleTouched, touchedCount++, j);
+          setF64(sleAcc, j, dot);
+        } else {
+          setF64(sleAcc, j, f64At(sleAcc, j) + dot);
+        }
+      }
+    }
+
+    for (let t = 0; t < touchedCount; ++t) {
+      const j = i32At(sleTouched, t);
+      store<u8>(sleInTouched + <usize>j, 0);
+      setI32(sleColIndex, nnz, j);
+      setF64(sleValues, nnz, f64At(sleAcc, j));
+      ++nnz;
+    }
+  }
+
+  setI32(sleRowStart, n, nnz);
+}
+
+function sleSweep(n: i32, hasLimits: i32): f64 {
+  let maxDifference: f64 = 0.0;
+
+  for (let i = 0; i < n; ++i) {
+    let sum: f64 = 0.0;
+    const end = i32At(sleRowStart, i + 1);
+    for (let p = i32At(sleRowStart, i); p < end; ++p) {
+      sum += f64At(sleValues, p) * f64At(sleX, i32At(sleColIndex, p));
+    }
+
+    let next = (f64At(sleRight, i) - sum) / f64At(sleDiagonal, i);
+
+    const prev = f64At(sleX, i);
+    let delta: f64;
+
+    if (hasLimits == 0) {
+      const minK = prev > 1e-3 ? prev : 1e-3;
+      delta = (Math.abs(next) - minK) / minK;
+    } else {
+      const limitMin = f64At(sleLimits, i * 2 + 0);
+      const limitMax = f64At(sleLimits, i * 2 + 1);
+      next = next < limitMin ? limitMin : next > limitMax ? limitMax : next;
+
+      const absPrev = Math.abs(prev);
+      const minK = absPrev > 1e-3 ? absPrev : 1e-3;
+      delta = Math.abs(next - prev) / minK;
+    }
+
+    if (delta > maxDifference) maxDifference = delta;
+    setF64(sleX, i, next);
+  }
+
+  return maxDifference;
+}
+
+export function solverSolve(
+  n: i32,
+  bodyCount: i32,
+  hasLimits: i32,
+  maxIterations: i32,
+  minDelta: f64,
+): i32 {
+  if (n == 0) return 1;
+
+  buildSystemMatrix(n, bodyCount);
+
+  for (let i = 0; i < maxIterations; ++i) {
+    if (sleSweep(n, hasLimits) < minDelta) return 1;
+  }
+
+  return 0;
+}

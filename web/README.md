@@ -184,34 +184,32 @@ See `CustomEngineJson` in `src/builder/customEngine.ts` for every field.
 
 ## Performance
 
-The gas-system hot path — pair flow, environment flow, velocity update,
-excess-velocity dissipation — also exists as AssemblyScript-compiled
-WebAssembly kernels (`wasm/assembly/index.ts`, ~11 KB, embedded as base64 so
-there is nothing extra to serve). Gas state lives in a `Float64Array` shared
-with wasm linear memory; `GasSystem.bindTo` points a system at a slot and the
-same code path serves both runtimes. The TypeScript implementations remain the
-reference: a lockstep test drives both through hundreds of states and holds
-them to 1e-9, and if instantiation fails the app silently keeps the JS path.
-The diagnostics row shows which one is live.
+The two hot paths run as AssemblyScript-compiled WebAssembly kernels
+(`wasm/assembly/index.ts`, ~15 KB, embedded as base64 so there is nothing
+extra to serve): the gas system (pair flow, environment flow, velocity
+update, excess-velocity dissipation) and the projected Gauss-Seidel
+constraint solve. Gas state lives in a `Float64Array` shared with wasm
+linear memory (`GasSystem.bindTo`); the solver copies its few hundred
+doubles into a fixed arena per solve, which is noise next to 128 sweeps.
+The TypeScript implementations remain the reference: lockstep tests drive
+both through hundreds of states and hold them to 1e-9, and if
+instantiation fails the app silently keeps the JS path. The diagnostics
+row shows which one is live.
 
 Measured with `npm run benchmark` on a desktop (Node 24, full fidelity —
 nominal simulation rate, 8 fluid sub-steps):
 
 | Engine | Rate | Cylinders | JS | WASM |
 | --- | --- | --- | --- | --- |
-| GM LS V8 | 10 kHz | 8 | 1.5x | 2.2x |
-| Ferrari 412 T2 | 5 kHz | 12 | 1.4x | 2.1x |
-| Toyota 2JZ | 10 kHz | 6 | 1.8x | 2.5x |
-| Honda B18C5 VTEC | 20 kHz | 4 | 1.0x | 1.4x |
-| Subaru EJ25 | 20 kHz | 4 | 1.2x | 1.9x |
-| Kohler CH750 | 30 kHz | 2 | 1.5x | 2.1x |
-| Radial 9 | 8 kHz | 9 | 1.6x | 2.2x |
+| GM LS V8 | 10 kHz | 8 | 1.6x | 2.4x |
+| Merlin V12 | 7 kHz | 12 | 1.5x | 2.3x |
+| Honda B18C5 VTEC | 20 kHz | 4 | 1.3x | 2.2x |
 
 (realtime factors; the full sweep is `npm run benchmark`, one engine is
-`npm run benchmark <id> [fluidSteps] [js|wasm|both]`). The kernels take
-roughly 40% off the frame and put every engine in the roster above realtime
-at full fidelity; the adaptive quality control covers slower hardware from
-there.
+`npm run benchmark <id> [fluidSteps] [js|wasm|both]`). The two kernels
+together take roughly 45% off the frame and put every engine in the roster
+comfortably above realtime at full fidelity; the adaptive quality control
+covers slower hardware from there.
 
 One lesson learned the hard way: the first version of the wasm module parked
 its state buffer at a fixed low address, which happened to sit on top of the

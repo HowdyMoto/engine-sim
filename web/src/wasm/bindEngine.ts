@@ -6,6 +6,7 @@
  */
 import { setGasKernels, type GasSystem } from '../engine/gasSystem';
 import { createGasKernels } from './kernels';
+import { bindSolverKernel } from './solverKernel';
 import type { Engine } from '../engine/engine';
 
 export function collectGasSystems(engine: Engine): GasSystem[] {
@@ -32,6 +33,9 @@ export function collectGasSystems(engine: Engine): GasSystem[] {
 export function bindEngineToKernels(engine: Engine): boolean {
   const systems = collectGasSystems(engine);
   const context = createGasKernels(systems.length);
+
+  // The constraint solve gets its own kernel instance; fall back silently.
+  bindSolverKernel();
 
   if (context === null) {
     setGasKernels(null);

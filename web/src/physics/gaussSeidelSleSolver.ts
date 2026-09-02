@@ -19,6 +19,33 @@ import { SparseMatrix } from './sparseMatrix';
 
 const EMPTY = 0xff;
 
+/**
+ * Optional WASM backend. `trySolve` returns null when it cannot handle the
+ * system (too many rows or bodies), in which case the JS path below - the
+ * reference implementation - runs instead.
+ */
+export interface SleKernel {
+  trySolve(
+    J: SparseMatrix,
+    W: Matrix,
+    right: Matrix,
+    limits: Matrix | null,
+    result: Matrix,
+    maxIterations: number,
+    minDelta: number,
+  ): boolean | null;
+}
+
+let sleKernel: SleKernel | null = null;
+
+export function setSleKernel(kernel: SleKernel | null): void {
+  sleKernel = kernel;
+}
+
+export function getSleKernel(): SleKernel | null {
+  return sleKernel;
+}
+
 export class GaussSeidelSleSolver {
   maxIterations = 128;
   minDelta = 1e-1;
@@ -84,6 +111,19 @@ export class GaussSeidelSleSolver {
     }
 
     if (n === 0) return true;
+
+    if (sleKernel !== null) {
+      const solved = sleKernel.trySolve(
+        J,
+        W,
+        right,
+        limits,
+        result,
+        this.maxIterations,
+        this.minDelta,
+      );
+      if (solved !== null) return solved;
+    }
 
     this.buildSystemMatrix(J, W, n);
 
