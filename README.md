@@ -6,6 +6,16 @@
 To get the newest releases of the game, [click here](https://github.com/Engine-Simulator/engine-sim-community-edition).
 ---
 
+## Web version
+
+There is a TypeScript port of this simulator in [`web/`](web) that runs in the
+browser — the same physics, gas model and audio synthesis, with the simulation
+on a Web Worker and sound through an AudioWorklet. See [web/README.md](web/README.md).
+
+```
+cd web && npm install && npm run dev
+```
+
 ## What is this?
 
 This is a real-time internal combustion engine simulation **designed specifically to produce engine audio and simulate engine response characteristics.** It is NOT a scientific tool and cannot be expected to provide accurate figures for the purposes of engineering or engine tuning.
