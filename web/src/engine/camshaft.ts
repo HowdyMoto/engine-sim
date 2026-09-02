@@ -34,6 +34,25 @@ export class Camshaft {
     return this.sampleLobe(this.getAngle() + this.lobeAngles[lobe]);
   }
 
+  /**
+   * Cam-local angle for a lobe, in [0, 2pi): 0 is the lobe tip on the
+   * follower (maximum lift). Drives the rendered cam rotation.
+   */
+  lobePhase(lobe: number): number {
+    const phase = (this.getAngle() + this.lobeAngles[lobe]) % (2 * PI);
+    return phase < 0 ? phase + 2 * PI : phase;
+  }
+
+  /** Peak lift of the lobe profile, for scaling drawn valve travel. */
+  peakLift(): number {
+    let peak = 0;
+    for (let i = 0; i < 256; ++i) {
+      const lift = this.sampleLobe(-PI + (i / 256) * 2 * PI);
+      if (lift > peak) peak = lift;
+    }
+    return peak;
+  }
+
   sampleLobe(theta: number): number {
     let clampedTheta = theta % (2 * PI);
     if (clampedTheta < 0) clampedTheta += 2 * PI;

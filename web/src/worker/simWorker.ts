@@ -113,6 +113,8 @@ function describeEngine(id: string, built: Engine): EngineInfo {
       displayDepth: bank.getDisplayDepth(),
       cylinderCount: bank.getCylinderCount(),
       flipDisplay: built.getHead(i).getFlipDisplay(),
+      maxIntakeLift: built.getHead(i).getValvetrain().getActiveIntakeCamshaft().peakLift(),
+      maxExhaustLift: built.getHead(i).getValvetrain().getActiveExhaustCamshaft().peakLift(),
     });
   }
 
@@ -382,6 +384,11 @@ function writeState(state: Float32Array, frameLoad: number): void {
     state[base + C.IntakeLift] = head.intakeValveLift(piston.getCylinderIndex());
     state[base + C.ExhaustLift] = head.exhaustValveLift(piston.getCylinderIndex());
     state[base + C.Lit] = i < litThisFrame.length ? litThisFrame[i] : 0;
+
+    const valvetrain = head.getValvetrain();
+    const lobe = piston.getCylinderIndex();
+    state[base + C.IntakeCamAngle] = valvetrain.getActiveIntakeCamshaft().lobePhase(lobe);
+    state[base + C.ExhaustCamAngle] = valvetrain.getActiveExhaustCamshaft().lobePhase(lobe);
   }
 
   const crankBase = crankshaftOffset(cylinderCount);

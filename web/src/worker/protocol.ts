@@ -15,6 +15,9 @@ export interface BankInfo {
   displayDepth: number;
   cylinderCount: number;
   flipDisplay: boolean;
+  /** Peak cam lobe lift, for scaling the drawn valve travel. */
+  maxIntakeLift: number;
+  maxExhaustLift: number;
 }
 
 export interface CylinderInfo {
@@ -143,7 +146,7 @@ export const enum S {
 }
 
 /** Floats per cylinder in the frame state block. */
-export const CYLINDER_STRIDE = 11;
+export const CYLINDER_STRIDE = 13;
 
 export const enum C {
   PistonX = 0,
@@ -158,6 +161,9 @@ export const enum C {
   ExhaustLift,
   /** 1 when this cylinder ignited during the frame. */
   Lit,
+  /** Cam-local lobe angle, 0 = max lift; drives the drawn cam rotation. */
+  IntakeCamAngle,
+  ExhaustCamAngle,
 }
 
 export function frameStateSize(cylinderCount: number, crankshaftCount: number): number {

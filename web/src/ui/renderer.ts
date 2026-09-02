@@ -55,6 +55,8 @@ export class EngineRenderer {
   /** View layer: -1 draws every layer, otherwise only that rod journal depth. */
   layer = -1;
 
+  private litDecay = new Float32Array(0);
+
   constructor(
     private canvas: HTMLCanvasElement,
     private theme: Theme = DEFAULT_THEME,
@@ -74,6 +76,7 @@ export class EngineRenderer {
       }))
       // Deeper journals sit further back, so paint them first.
       .sort((a, b) => b.layer - a.layer);
+    this.litDecay = new Float32Array(info.cylinderCount);
   }
 
   getMaxLayer(): number {
@@ -121,7 +124,7 @@ export class EngineRenderer {
       const py = dx;
       const halfBore = bank.bore / 2;
 
-      for (const s of [0, bank.deckHeight + bank.bore * 0.35]) {
+      for (const s of [0, bank.deckHeight + bank.bore * 0.78]) {
         for (const side of [-halfBore, halfBore]) {
           const x = bank.x + dx * s + px * side;
           const y = bank.y + dy * s + py * side;
@@ -164,18 +167,32 @@ export class EngineRenderer {
 
     const crankTheta = state[crankshaftOffset(info.cylinderCount)];
 
-    this.drawCylinderWalls(state);
+    // Ignition flashes decay over a few frames so they are visible at speed.
+    for (let i = 0; i < info.cylinderCount; ++i) {
+      if (state[cylinderOffset(i) + C.Lit] > 0.5) this.litDecay[i] = 1;
+      else this.litDecay[i] *= 0.7;
+    }
 
+    this.drawCylinderWalls();
+
+    // The front-most drawn cylinder on each bank is the one whose valvetrain
+    // is visible, exactly as the overlapping pistons already behave.
+    const bankFront = new Array<number>(info.banks.length).fill(-1);
     for (const entry of this.drawOrder) {
       if (this.layer !== -1 && entry.layer !== this.layer) continue;
       this.drawCylinder(state, entry.index);
+      bankFront[entry.bankIndex] = entry.index;
+    }
+
+    for (let b = 0; b < info.banks.length; ++b) {
+      if (bankFront[b] !== -1) this.drawValvetrain(state, b, bankFront[b]);
     }
 
     this.drawCrankshaft(crankTheta);
     this.drawSpinIndicator(state);
   }
 
-  private drawCylinderWalls(state: Float32Array): void {
+  private drawCylinderWalls(): void {
     const info = this.info!;
     const ctx = this.ctx;
 
@@ -186,18 +203,10 @@ export class EngineRenderer {
       const px = -dy;
       const py = dx;
 
-      const halfBore = bank.bore / 2;
+      const bore = bank.bore;
+      const halfBore = bore / 2;
       const base = info.crankThrow * 0.85;
-      const top = bank.deckHeight;
-      const headTop = top + bank.bore * 0.3;
-
-      // Hottest cylinder on this bank tints the head.
-      let peakPressure = 0;
-      for (let i = 0; i < info.cylinderCount; ++i) {
-        if (info.cylinders[i].bankIndex !== b) continue;
-        peakPressure = Math.max(peakPressure, state[cylinderOffset(i) + C.Pressure]);
-      }
-      const heat = Math.min(1, peakPressure / units.pressure(50, units.atm));
+      const deck = bank.deckHeight;
 
       const point = (s: number, side: number): [number, number] => [
         this.tx(bank.x + dx * s + px * side),
@@ -207,8 +216,8 @@ export class EngineRenderer {
       // Bore.
       ctx.beginPath();
       ctx.moveTo(...point(base, halfBore));
-      ctx.lineTo(...point(top, halfBore));
-      ctx.lineTo(...point(top, -halfBore));
+      ctx.lineTo(...point(deck, halfBore));
+      ctx.lineTo(...point(deck, -halfBore));
       ctx.lineTo(...point(base, -halfBore));
       ctx.closePath();
       ctx.fillStyle = this.theme.shadow;
@@ -217,24 +226,41 @@ export class EngineRenderer {
       ctx.strokeStyle = this.theme.metalDark;
       ctx.stroke();
 
-      // Head, tinted by the hottest chamber on the bank.
+      // Head casting: a slab over the deck with a shallow pent roof.
       ctx.beginPath();
-      ctx.moveTo(...point(top, halfBore * 1.12));
-      ctx.lineTo(...point(headTop, halfBore * 1.12));
-      ctx.lineTo(...point(headTop, -halfBore * 1.12));
-      ctx.lineTo(...point(top, -halfBore * 1.12));
+      ctx.moveTo(...point(deck, halfBore * 1.16));
+      ctx.lineTo(...point(deck + bore * 0.5, halfBore * 1.16));
+      ctx.lineTo(...point(deck + bore * 0.58, halfBore * 0.62));
+      ctx.lineTo(...point(deck + bore * 0.58, -halfBore * 0.62));
+      ctx.lineTo(...point(deck + bore * 0.5, -halfBore * 1.16));
+      ctx.lineTo(...point(deck, -halfBore * 1.16));
       ctx.closePath();
       ctx.fillStyle = this.theme.metalDark;
       ctx.fill();
-      if (heat > 0.02) {
+      ctx.strokeStyle = this.theme.metal;
+      ctx.stroke();
+
+      // Port channels above each valve: intake cold-tinted, exhaust warm.
+      const intakeSide = bank.flipDisplay ? 1 : -1;
+      for (const [side, tint] of [
+        [intakeSide, this.theme.cold],
+        [-intakeSide, this.theme.hot],
+      ] as [number, string][]) {
+        const t = side * bore * 0.24;
+        ctx.beginPath();
+        ctx.moveTo(...point(deck, t - bore * 0.1));
+        ctx.lineTo(...point(deck + bore * 0.2, t - bore * 0.075));
+        ctx.lineTo(...point(deck + bore * 0.2, t + bore * 0.075));
+        ctx.lineTo(...point(deck, t + bore * 0.1));
+        ctx.closePath();
+        ctx.fillStyle = this.theme.shadow;
+        ctx.fill();
         ctx.save();
-        ctx.globalAlpha = heat * 0.35;
-        ctx.fillStyle = this.theme.hot;
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = tint;
         ctx.fill();
         ctx.restore();
       }
-      ctx.strokeStyle = this.theme.metal;
-      ctx.stroke();
     }
   }
 
@@ -252,9 +278,7 @@ export class EngineRenderer {
     const rodY = state[base + C.RodY];
     const rodTheta = state[base + C.RodTheta];
     const pressure = state[base + C.Pressure];
-
-    // Combustion glow above roughly 20 atmospheres.
-    const glow = Math.min(1, Math.max(0, pressure / units.pressure(40, units.atm)));
+    const temperature = state[base + C.Temperature];
 
     // Rod: big end to little end, drawn as a tapered beam.
     const cos = Math.cos(rodTheta);
@@ -318,19 +342,223 @@ export class EngineRenderer {
     ctx.strokeStyle = this.theme.outline;
     ctx.stroke();
 
-    if (glow > 0.02) {
-      ctx.save();
-      ctx.globalAlpha = glow * 0.85;
-      ctx.fillStyle = this.theme.hot;
+    this.drawChamberGas(index, pistonX, pistonY, pressure, temperature);
+  }
+
+  /**
+   * The gas above the piston crown, tinted by temperature with opacity from
+   * pressure, plus the ignition flash. This is the per-cylinder combustion
+   * view the original renders as the chamber gas color.
+   */
+  private drawChamberGas(
+    index: number,
+    pistonX: number,
+    pistonY: number,
+    pressure: number,
+    temperature: number,
+  ): void {
+    const info = this.info!;
+    const ctx = this.ctx;
+    const cylinder = info.cylinders[index];
+    const bank = info.banks[cylinder.bankIndex];
+
+    const dx = Math.cos(bank.angle + PI / 2);
+    const dy = Math.sin(bank.angle + PI / 2);
+    const px = -dy;
+    const py = dx;
+
+    // Piston crown position along the bank axis.
+    const sPiston = (pistonX - bank.x) * dx + (pistonY - bank.y) * dy;
+    const sCrown = sPiston + cylinder.compressionHeight * 1.04;
+    const sDeck = bank.deckHeight;
+    if (sCrown >= sDeck) return;
+
+    const halfBore = bank.bore * 0.47;
+    const point = (s: number, side: number): [number, number] => [
+      this.tx(bank.x + dx * s + px * side),
+      this.ty(bank.y + dy * s + py * side),
+    ];
+
+    // Temperature picks the color (cold blue -> orange -> near white),
+    // pressure the opacity.
+    const heat = Math.min(1, Math.max(0, (temperature - 300) / 2200));
+    const alpha = Math.min(0.85, (pressure / units.pressure(35, units.atm)) * 0.85);
+    const flash = this.litDecay[index];
+
+    if (alpha > 0.01 || flash > 0.02) {
       ctx.beginPath();
-      ctx.moveTo(...corner(-halfBore, height * 0.55));
-      ctx.lineTo(...corner(halfBore, height * 0.55));
-      ctx.lineTo(...corner(halfBore, height * 0.68));
-      ctx.lineTo(...corner(-halfBore, height * 0.68));
+      ctx.moveTo(...point(sCrown, -halfBore));
+      ctx.lineTo(...point(sCrown, halfBore));
+      ctx.lineTo(...point(sDeck, halfBore));
+      ctx.lineTo(...point(sDeck, -halfBore));
       ctx.closePath();
+
+      const r = Math.round(90 + heat * 165);
+      const g = Math.round(120 + heat * 60);
+      const bch = Math.round(220 - heat * 160);
+      ctx.save();
+      ctx.globalAlpha = Math.max(alpha, flash * 0.4);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${bch})`;
       ctx.fill();
+
+      if (flash > 0.02) {
+        // Spark flash washing the chamber from the plug at the head center.
+        const [cx, cy] = point(sDeck, 0);
+        const radius = Math.max(1, bank.bore * 0.55 * this.scale);
+        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        gradient.addColorStop(0, `rgba(255, 244, 214, ${0.95 * flash})`);
+        gradient.addColorStop(0.5, `rgba(255, 168, 74, ${0.55 * flash})`);
+        gradient.addColorStop(1, 'rgba(255, 120, 40, 0)');
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
       ctx.restore();
     }
+  }
+
+  /**
+   * Valves, springs and cams for one bank, driven by the front-most drawn
+   * cylinder - overlapping cylinders behind it show through exactly as the
+   * pistons do. Cam rotation comes from the real lobe phase (0 = tip on the
+   * follower at max lift), so timing reads correctly against the crank.
+   */
+  private drawValvetrain(state: Float32Array, bankIndex: number, cylinderIndex: number): void {
+    const info = this.info!;
+    const bank = info.banks[bankIndex];
+    const base = cylinderOffset(cylinderIndex);
+
+    const intakeSide = bank.flipDisplay ? 1 : -1;
+    this.drawValveAssembly(
+      bank,
+      intakeSide,
+      state[base + C.IntakeLift],
+      bank.maxIntakeLift,
+      state[base + C.IntakeCamAngle],
+      this.theme.cold,
+    );
+    this.drawValveAssembly(
+      bank,
+      -intakeSide,
+      state[base + C.ExhaustLift],
+      bank.maxExhaustLift,
+      state[base + C.ExhaustCamAngle],
+      this.theme.hot,
+    );
+  }
+
+  private drawValveAssembly(
+    bank: EngineInfo['banks'][number],
+    side: number,
+    lift: number,
+    maxLift: number,
+    camAngle: number,
+    tint: string,
+  ): void {
+    const ctx = this.ctx;
+    const bore = bank.bore;
+    const deck = bank.deckHeight;
+
+    const dx = Math.cos(bank.angle + PI / 2);
+    const dy = Math.sin(bank.angle + PI / 2);
+    const px = -dy;
+    const py = dx;
+
+    const t = side * bore * 0.24;
+    const point = (s: number, lateral: number): [number, number] => [
+      this.tx(bank.x + dx * s + px * (t + lateral)),
+      this.ty(bank.y + dy * s + py * (t + lateral)),
+    ];
+
+    const liftFraction = maxLift > 0 ? Math.min(1.15, lift / maxLift) : 0;
+    const travel = liftFraction * bore * 0.1;
+
+    const discHalf = bore * 0.15;
+    const discThickness = bore * 0.045;
+    const stemHalf = bore * 0.018;
+    const stemTop = deck + bore * 0.42;
+
+    const line = Math.max(1, this.scale * 0.003);
+
+    // Stem, sliding down with lift.
+    ctx.beginPath();
+    ctx.moveTo(...point(stemTop - travel, -stemHalf));
+    ctx.lineTo(...point(stemTop - travel, stemHalf));
+    ctx.lineTo(...point(deck - travel + discThickness, stemHalf));
+    ctx.lineTo(...point(deck - travel + discThickness, -stemHalf));
+    ctx.closePath();
+    ctx.fillStyle = this.theme.metalLight;
+    ctx.fill();
+    ctx.strokeStyle = this.theme.outline;
+    ctx.lineWidth = line;
+    ctx.stroke();
+
+    // Valve head, seated at the deck when closed.
+    ctx.beginPath();
+    ctx.moveTo(...point(deck - travel + discThickness, -discHalf * 0.55));
+    ctx.lineTo(...point(deck - travel + discThickness, discHalf * 0.55));
+    ctx.lineTo(...point(deck - travel - discThickness, discHalf));
+    ctx.lineTo(...point(deck - travel - discThickness, -discHalf));
+    ctx.closePath();
+    ctx.fillStyle = this.theme.metalLight;
+    ctx.fill();
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = tint;
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = this.theme.outline;
+    ctx.stroke();
+
+    // Spring: coils between the head seat and the retainer at the stem top.
+    const seat = deck + bore * 0.2;
+    const retainer = stemTop - travel;
+    const coilHalf = bore * 0.05;
+    const coils = 5;
+    ctx.beginPath();
+    ctx.moveTo(...point(seat, -coilHalf));
+    for (let i = 1; i <= coils * 2; ++i) {
+      const s = seat + ((retainer - seat) * i) / (coils * 2);
+      ctx.lineTo(...point(s, i % 2 === 0 ? -coilHalf : coilHalf));
+    }
+    ctx.strokeStyle = this.theme.metal;
+    ctx.lineWidth = Math.max(1, this.scale * 0.004);
+    ctx.stroke();
+
+    // Cam: base circle plus a lobe rotating with the real phase. Tip points
+    // at the follower (down the bank axis) at max lift.
+    const camS = deck + bore * 0.52;
+    const [camX, camY] = point(camS, 0);
+    const baseRadius = bore * 0.085 * this.scale;
+    const tipRadius = bore * 0.165 * this.scale;
+
+    // Engine-space angle of the lobe tip: straight down the bank axis at
+    // phase 0, advancing with cam rotation. Canvas y is flipped, so the
+    // engine-space angle negates.
+    const downAngle = Math.atan2(-dy, -dx);
+    const tipAngle = -(downAngle + camAngle);
+
+    ctx.save();
+    ctx.translate(camX, camY);
+    ctx.rotate(tipAngle);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, baseRadius, 0.9, 2 * PI - 0.9);
+    ctx.quadraticCurveTo(tipRadius * 0.85, -baseRadius * 0.5, tipRadius, 0);
+    ctx.quadraticCurveTo(tipRadius * 0.85, baseRadius * 0.5, Math.cos(0.9) * baseRadius, Math.sin(0.9) * baseRadius);
+    ctx.closePath();
+    ctx.fillStyle = this.theme.metal;
+    ctx.fill();
+    ctx.strokeStyle = this.theme.outline;
+    ctx.lineWidth = line;
+    ctx.stroke();
+
+    // Journal dot so rotation is readable even between lift events.
+    ctx.beginPath();
+    ctx.arc(0, 0, baseRadius * 0.3, 0, 2 * PI);
+    ctx.fillStyle = this.theme.metalDark;
+    ctx.fill();
+    ctx.restore();
   }
 
   private drawCrankshaft(theta: number): void {
