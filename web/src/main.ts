@@ -52,6 +52,9 @@ class App {
   private impulseResponses = new Map<string, Int16Array>();
 
   private readonly engineCanvas = element<HTMLCanvasElement>('engine-canvas');
+  private lastFuelVolume = 0;
+  private lastFuelTime = 0;
+  private fuelRate = 0;
   private readonly gaugeCanvas = element<HTMLCanvasElement>('gauge-canvas');
   private readonly banner = element<HTMLDivElement>('status-banner');
   private readonly help = element<HTMLDivElement>('help');
@@ -216,6 +219,40 @@ class App {
     });
     if (themeSelect.value !== 'default') applyTheme(themeSelect.value);
 
+    // Camera: wheel zooms about the cursor, drag pans, double-click resets.
+    this.engineCanvas.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault();
+        const rect = this.engineCanvas.getBoundingClientRect();
+        const factor = Math.exp(-event.deltaY * 0.0012);
+        this.renderer.zoomAt(event.clientX - rect.left, event.clientY - rect.top, factor);
+      },
+      { passive: false },
+    );
+    let dragging = false;
+    let dragX = 0;
+    let dragY = 0;
+    this.engineCanvas.addEventListener('pointerdown', (event) => {
+      dragging = true;
+      dragX = event.clientX;
+      dragY = event.clientY;
+      this.engineCanvas.setPointerCapture(event.pointerId);
+    });
+    this.engineCanvas.addEventListener('pointermove', (event) => {
+      if (!dragging) return;
+      this.renderer.panBy(event.clientX - dragX, event.clientY - dragY);
+      dragX = event.clientX;
+      dragY = event.clientY;
+    });
+    this.engineCanvas.addEventListener('pointerup', () => {
+      dragging = false;
+    });
+    this.engineCanvas.addEventListener('dblclick', () => {
+      this.renderer.resetView();
+      this.showBanner('View reset');
+    });
+
     const volume = element<HTMLInputElement>('volume');
     volume.addEventListener('input', () => {
       this.audio.setVolume(Number(volume.value));
@@ -367,6 +404,40 @@ class App {
       this.showBanner(`Theme: ${getTheme(themeSelect.value).label}`);
     });
     if (themeSelect.value !== 'default') applyTheme(themeSelect.value);
+
+    // Camera: wheel zooms about the cursor, drag pans, double-click resets.
+    this.engineCanvas.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault();
+        const rect = this.engineCanvas.getBoundingClientRect();
+        const factor = Math.exp(-event.deltaY * 0.0012);
+        this.renderer.zoomAt(event.clientX - rect.left, event.clientY - rect.top, factor);
+      },
+      { passive: false },
+    );
+    let dragging = false;
+    let dragX = 0;
+    let dragY = 0;
+    this.engineCanvas.addEventListener('pointerdown', (event) => {
+      dragging = true;
+      dragX = event.clientX;
+      dragY = event.clientY;
+      this.engineCanvas.setPointerCapture(event.pointerId);
+    });
+    this.engineCanvas.addEventListener('pointermove', (event) => {
+      if (!dragging) return;
+      this.renderer.panBy(event.clientX - dragX, event.clientY - dragY);
+      dragX = event.clientX;
+      dragY = event.clientY;
+    });
+    this.engineCanvas.addEventListener('pointerup', () => {
+      dragging = false;
+    });
+    this.engineCanvas.addEventListener('dblclick', () => {
+      this.renderer.resetView();
+      this.showBanner('View reset');
+    });
 
     const volume = element<HTMLInputElement>('volume');
         volume.value = String(clamp(Number(volume.value) + step * 0.05, 0, 1.5));
@@ -537,6 +608,23 @@ class App {
     set('r-gear', gear < 0 ? 'N' : String(gear + 1));
     set('r-clutch', `${(state[S.ClutchPressure] * 100).toFixed(0)}%`);
     set('r-speed', `${(state[S.VehicleSpeed] / units.mph).toFixed(0)} mph`);
+
+    // Fuel: cumulative burn, and a smoothed rate like the original's cluster.
+    const fuel = state[S.FuelConsumed];
+    const now = performance.now() / 1000;
+    if (this.lastFuelTime > 0 && now > this.lastFuelTime) {
+      const rate = Math.max(0, (fuel - this.lastFuelVolume) / (now - this.lastFuelTime));
+      this.fuelRate += (rate - this.fuelRate) * 0.05;
+    }
+    this.lastFuelVolume = fuel;
+    this.lastFuelTime = now;
+    set(
+      'r-fuel',
+      fuel < units.volume(1.0, units.L)
+        ? `${(fuel / units.volume(1.0, units.mL)).toFixed(1)} mL`
+        : `${(fuel / units.volume(1.0, units.L)).toFixed(2)} L`,
+    );
+    set('r-fuel-rate', `${((this.fuelRate * 3600) / units.volume(1.0, units.L)).toFixed(1)} L/h`);
 
     set('d-frequency', `${(state[S.SimulationFrequency] / 1000).toFixed(1)} kHz`);
     set('d-fluid', state[S.FluidSteps].toFixed(0));

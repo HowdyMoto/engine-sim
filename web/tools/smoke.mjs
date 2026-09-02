@@ -73,6 +73,8 @@ const readouts = await page.evaluate(() => {
     fluid: text('d-fluid'),
     load: text('d-load'),
     gasKernels: text('d-wasm'),
+    fuel: text('r-fuel'),
+    fuelRate: text('r-fuel-rate'),
     latency: text('d-latency'),
     steps: text('d-steps'),
     drops: text('d-drops'),

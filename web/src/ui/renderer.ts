@@ -72,6 +72,11 @@ export class EngineRenderer {
 
   private litDecay = new Float32Array(0);
 
+  // User camera on top of the auto-fit: zoom factor and pan in canvas pixels.
+  private userZoom = 1;
+  private userPanX = 0;
+  private userPanY = 0;
+
   constructor(
     private canvas: HTMLCanvasElement,
     private theme: Theme = DEFAULT_THEME,
@@ -159,9 +164,42 @@ export class EngineRenderer {
     const spanX = (maxX - minX) * margin;
     const spanY = (maxY - minY) * margin;
 
-    this.scale = Math.min(width / spanX, height / spanY);
-    this.originX = width / 2 - ((minX + maxX) / 2) * this.scale;
-    this.originY = height / 2 + ((minY + maxY) / 2) * this.scale;
+    this.scale = Math.min(width / spanX, height / spanY) * this.userZoom;
+    this.originX = width / 2 - ((minX + maxX) / 2) * this.scale + this.userPanX;
+    this.originY = height / 2 + ((minY + maxY) / 2) * this.scale + this.userPanY;
+  }
+
+  /** Zoom about a canvas point (CSS pixels), keeping it fixed on screen. */
+  zoomAt(cssX: number, cssY: number, factor: number): void {
+    const dpr = this.canvas.width / Math.max(1, this.canvas.getBoundingClientRect().width);
+    const x = cssX * dpr;
+    const y = cssY * dpr;
+
+    const nextZoom = Math.min(12, Math.max(0.4, this.userZoom * factor));
+    const applied = nextZoom / this.userZoom;
+    this.userZoom = nextZoom;
+
+    // Keep the point under the cursor stationary: pan moves with the zoom.
+    const cx = this.canvas.width / 2;
+    const cy = this.canvas.height / 2;
+    this.userPanX = (this.userPanX + cx - x) * applied - (cx - x);
+    this.userPanY = (this.userPanY + cy - y) * applied - (cy - y);
+  }
+
+  panBy(cssDx: number, cssDy: number): void {
+    const dpr = this.canvas.width / Math.max(1, this.canvas.getBoundingClientRect().width);
+    this.userPanX += cssDx * dpr;
+    this.userPanY += cssDy * dpr;
+  }
+
+  resetView(): void {
+    this.userZoom = 1;
+    this.userPanX = 0;
+    this.userPanY = 0;
+  }
+
+  isViewModified(): boolean {
+    return this.userZoom !== 1 || this.userPanX !== 0 || this.userPanY !== 0;
   }
 
   private tx(x: number): number {
