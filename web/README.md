@@ -58,13 +58,29 @@ cylinder banks and heads are the same concepts with the same numbers, and
 `EngineNode::buildEngine`. Porting another `.mr` file is a mechanical
 translation; no compiler for the scripting language is needed.
 
-Bundled: **GM LS V8**, **Toyota 2JZ** (inline six), **Subaru EJ25** (flat four),
-**Suzuki Hayabusa** (inline four, 11 000 rpm), **Kohler CH750** (governed
-90° V-twin), **Radial 9** (articulated rods — one master rod on the crank
-journal, eight slaves on journals carried by the master's big end; it cranks
-slowly against 2.4 kg·m² of flywheel, so hold the starter).
+Bundled - twenty-one of them, covering every distinct definition in
+`assets/engines/`:
 
-Shared parts from `es/part-library/` live in `src/engines/parts.ts`.
+GM LS V8 · Chevy 454 big block · Ferrari F136 (flat-plane V8) · Ferrari 412 T2
+(75° F1 V12, 18 000 rpm) · Lexus LFA V10 · Merlin V-1650 aero V12 · Toyota 2JZ ·
+BMW M52B28 · Audi inline five · Honda B18C5 VTEC (reverse rotation, cam
+switchover) · 60°/odd-fire/even-fire generic V6s · Subaru EJ25 (equal and
+unequal headers) · Suzuki Hayabusa · Harley Shovelhead · Kohler CH750 (governed)
+· Honda TRX520 · Radial 5 · Radial 9 (articulated rods).
+
+Big, high-compression engines behave like the real thing on the starter: the
+radials crank slowly and the Merlin sits compression-locked for several seconds
+until blowby bleeds the locked cylinders down, then catches. Some engines have
+no idle bypass in their source data (the 2JZ, for one) and need throttle to run.
+
+Not ported, as tunes of the above: `audi/i5.mr` (a 2.2 L tune),
+`chevrolet/engine_03_for_e1.mr` (a carburettor tune of the 454),
+`kohler/kohler_ch750.mr` (a pre-governor revision) and
+`atg-video-1/06_subaru_ej25.mr` (an earlier EJ25 revision).
+
+Shared parts from `es/part-library/` live in `src/engines/parts.ts`. The BMW
+and 454 sources define no vehicle or transmission; the port supplies those,
+marked as such in each file.
 
 The impulse response library names files under `assets/sound-library/new/` and
 `sharp/`, neither of which was ever committed upstream — only `smooth/` and

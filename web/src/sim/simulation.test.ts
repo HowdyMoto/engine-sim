@@ -8,7 +8,27 @@ import { Vehicle } from '../engine/vehicle';
 import { Transmission } from '../engine/transmission';
 import { buildEngine } from '../builder/buildEngine';
 import { PistonEngineSimulator } from './pistonEngineSimulator';
-import { ENGINES, gmLs, subaruEj25, kohlerCh750, radial9, toyota2jz, hayabusa } from '../engines';
+import {
+  ENGINES,
+  gmLs,
+  subaruEj25,
+  kohlerCh750,
+  radial9,
+  radial5,
+  toyota2jz,
+  hayabusa,
+  bmwM52,
+  audiI5,
+  hondaVtec,
+  hondaTrx520,
+  harleyShovelhead,
+  chevy454,
+  ferrariF136,
+  ferrari412T2,
+  lfaV10,
+  merlinV12,
+  v6Sixty,
+} from '../engines';
 import type { EngineDefinition } from '../builder/spec';
 
 // Combustion efficiency is randomised per ignition event; pin it so runs are
@@ -111,6 +131,18 @@ describe('engine geometry', () => {
     [hayabusa, 1.34, 0.2],
     [kohlerCh750, 0.75, 0.15],
     [radial9, 16.5, 2.0],
+    [radial5, 9.2, 1.2],
+    [bmwM52, 2.79, 0.3],
+    [audiI5, 2.33, 0.3],
+    [hondaVtec, 1.8, 0.2],
+    [hondaTrx520, 0.52, 0.1],
+    [harleyShovelhead, 1.34, 0.2],
+    [chevy454, 7.44, 0.6],
+    [ferrariF136, 4.5, 0.4],
+    [ferrari412T2, 3.0, 0.3],
+    [lfaV10, 4.8, 0.4],
+    [merlinV12, 27.0, 2.0],
+    [v6Sixty, 3.29, 0.35],
   ];
 
   it.each(DISPLACEMENTS)('computes %s displacement', (definition, nominal, tolerance) => {

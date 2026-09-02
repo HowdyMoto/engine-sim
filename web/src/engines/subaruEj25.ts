@@ -35,7 +35,7 @@ function turbulenceToFlameSpeedRatio() {
   ]);
 }
 
-export function subaruEj25Spec(): EngineSpec {
+export function subaruEj25Spec(unequalHeaders = false): EngineSpec {
   const stroke = units.distance(79, units.mm);
   const bore = units.distance(99.5, units.mm);
   const rodLength = units.distance(5.142, units.inch);
@@ -86,7 +86,9 @@ export function subaruEj25Spec(): EngineSpec {
 
   const exhaust0: ExhaustSpec = {
     outletFlowRate: k_carb(1000.0),
-    primaryTubeLength: units.distance(40.0, units.inch),
+    primaryTubeLength: unequalHeaders
+      ? units.distance(24.0, units.inch)
+      : units.distance(40.0, units.inch),
     primaryFlowRate: k_carb(400.0),
     velocityDecay: 1.0,
     length: units.distance(500, units.mm),
@@ -175,8 +177,20 @@ export function subaruEj25Spec(): EngineSpec {
     bore,
     deckHeight,
     cylinders: [
-      cylinder(rj1, wires[1], 0.001, units.distance(3.0, units.inch), 1.1),
-      cylinder(rj2, wires[3], 0.002, units.distance(5.0, units.inch), 0.9),
+      cylinder(
+        rj1,
+        wires[1],
+        0.001,
+        unequalHeaders ? units.distance(500, units.mm) : units.distance(3.0, units.inch),
+        1.1,
+      ),
+      cylinder(
+        rj2,
+        wires[3],
+        0.002,
+        unequalHeaders ? units.distance(550, units.mm) : units.distance(5.0, units.inch),
+        0.9,
+      ),
     ],
     head: head([2, 3], false),
   };
@@ -251,4 +265,16 @@ export const subaruEj25: EngineDefinition = {
     maxClutchTorque: units.torque(300, units.ft_lb),
     gearRatios: [3.636, 2.375, 1.761, 1.346, 0.971, 0.756],
   }),
+};
+
+/**
+ * `02_subaru_ej25_uh.mr` is the same engine with unequal-length headers - the
+ * four-line diff that produces the classic Subaru rumble.
+ */
+export const subaruEj25Uh: EngineDefinition = {
+  ...subaruEj25,
+  id: 'subaru-ej25-uh',
+  label: 'Subaru EJ25 (unequal headers)',
+  description: '2.5 L flat-four with unequal headers — the classic rumble',
+  engine: () => subaruEj25Spec(true),
 };

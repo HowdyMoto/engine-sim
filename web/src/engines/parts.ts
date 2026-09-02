@@ -171,6 +171,35 @@ export function performerRpmIntake(options?: {
   };
 }
 
+// ---- Chevy big-block parts (`heads.mr`, `cam_lobes.mr`, `camshafts.mr`) ----
+
+/**
+ * `chevy_bbc_peanut_port_head`. Its flow tables are identical to the
+ * small-engine head's; the geometry is big-block.
+ */
+export function chevyBbcPeanutPortHead(options: {
+  intakeCamshaft: CamshaftSpec;
+  exhaustCamshaft: CamshaftSpec;
+  flipDisplay?: boolean;
+}): CylinderHeadSpec {
+  return {
+    chamberVolume: units.volume(118.0, units.cc),
+    intakeRunnerVolume: units.volume(189.0, units.cc),
+    intakeRunnerCrossSectionArea: units.area(37.8, units.cm2),
+    // The head node leaves these at the cylinder_head_parameters defaults.
+    exhaustRunnerVolume: units.volume(300.0, units.cc),
+    exhaustRunnerCrossSectionArea: Math.PI * Math.pow(units.distance(0.85, units.inch), 2),
+    intakePortFlow: flowFunction(SMALL_ENGINE_INTAKE_FLOW),
+    exhaustPortFlow: flowFunction(SMALL_ENGINE_EXHAUST_FLOW),
+    valvetrain: {
+      kind: 'standard',
+      intakeCamshaft: options.intakeCamshaft,
+      exhaustCamshaft: options.exhaustCamshaft,
+    },
+    flipDisplay: options.flipDisplay ?? false,
+  };
+}
+
 // ---- Camshaft layouts -----------------------------------------------------
 
 export interface LobeCenters {
