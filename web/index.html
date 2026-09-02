@@ -90,14 +90,58 @@
         <canvas id="scope-canvas"></canvas>
         <canvas id="gauge-canvas"></canvas>
 
-        <div class="toggles">
-          <button id="toggle-ignition" class="toggle" type="button">Ignition <kbd>A</kbd></button>
-          <button id="toggle-starter" class="toggle" type="button">Starter <kbd>S</kbd></button>
-          <button id="toggle-dyno" class="toggle" type="button">Dyno <kbd>D</kbd></button>
-          <button id="toggle-hold" class="toggle" type="button">RPM hold <kbd>H</kbd></button>
-          <div class="throttle-row">
-            <span>Throttle</span>
-            <input id="throttle" type="range" min="0" max="1" step="0.001" value="0" />
+        <div class="control-panel">
+          <div class="cp-main">
+            <div class="cp-block">
+              <button id="toggle-ignition" class="ignition-switch" type="button" title="Ignition (A)">
+                <span class="switch-slot"><span class="switch-lever"></span></span>
+              </button>
+              <span class="cp-label">IGNITION</span>
+            </div>
+
+            <div class="cp-block">
+              <button id="toggle-starter" class="starter-button" type="button" title="Hold to crank (S)">
+                START
+              </button>
+              <span class="cp-label">STARTER</span>
+            </div>
+
+            <div class="cp-block cp-bar-block">
+              <div class="cp-bar-track">
+                <div id="bar-throttle" class="cp-bar-fill cp-throttle"></div>
+              </div>
+              <span class="cp-label">THR <b id="bar-throttle-pct">0</b></span>
+            </div>
+
+            <div class="cp-block cp-bar-block">
+              <div class="cp-bar-track">
+                <div id="bar-clutch" class="cp-bar-fill cp-clutch"></div>
+              </div>
+              <span class="cp-label">CLU <b id="bar-clutch-pct">0</b></span>
+            </div>
+
+            <div class="cp-block cp-gear-block">
+              <div class="cp-gear-row">
+                <div class="cp-gear-buttons">
+                  <button id="gear-up" type="button" title="Shift up (Up arrow)">&#9650;</button>
+                  <button id="gear-down" type="button" title="Shift down (Down arrow)">&#9660;</button>
+                </div>
+                <b id="gear-display" class="cp-gear-digit">N</b>
+              </div>
+              <span class="cp-label">GEAR</span>
+            </div>
+          </div>
+
+          <div class="cp-aux">
+            <button id="toggle-dyno" class="toggle" type="button">Dyno <kbd>D</kbd></button>
+            <button id="toggle-hold" class="toggle" type="button">RPM hold <kbd>H</kbd></button>
+            <button id="pedals-setup" class="toggle" type="button">
+              Pedals&#8230; <span id="pedals-status" class="pedal-dot" title="No device"></span>
+            </button>
+            <div class="throttle-row">
+              <span>Throttle</span>
+              <input id="throttle" type="range" min="0" max="1" step="0.001" value="0" />
+            </div>
           </div>
         </div>
 
@@ -128,6 +172,7 @@
             <tr><td><kbd>Space</kbd> + scroll</td><td>Fine throttle adjustment</td></tr>
             <tr><td><kbd>Shift</kbd></td><td>Clutch (hold <kbd>Space</kbd> too to slip it in slowly)</td></tr>
             <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Shift up / down</td></tr>
+            <tr><td>Sim pedals</td><td>Bind throttle, clutch and paddles via <b>Pedals…</b> in the panel</td></tr>
             <tr><td><kbd>Z</kbd> + scroll</td><td>Volume</td></tr>
             <tr><td><kbd>X</kbd> + scroll</td><td>Convolution level</td></tr>
             <tr><td><kbd>C</kbd> + scroll</td><td>High frequency gain</td></tr>
@@ -143,6 +188,52 @@
         <button id="help-close" class="primary" type="button">Close</button>
       </div>
     </div>
+
+    <dialog id="pedals-dialog">
+      <form method="dialog" class="pedals-editor">
+        <h2>Sim racing pedals</h2>
+        <p class="hint">
+          Bind your pedals and shifter: click a Bind button, then press the pedal or
+          paddle you want. Calibration follows the movement (any rest position or
+          direction works) and keeps refining as you drive.
+          <span id="pedals-devices"></span>
+        </p>
+        <div class="pedal-rows">
+          <div class="pedal-row">
+            <span>Throttle pedal</span>
+            <div class="pedal-preview"><div id="pedal-preview-throttle"></div></div>
+            <b id="pedal-bind-label-throttle">unbound</b>
+            <button type="button" data-bind="throttle">Bind</button>
+            <button type="button" data-clear="throttle">Clear</button>
+          </div>
+          <div class="pedal-row">
+            <span>Clutch pedal</span>
+            <div class="pedal-preview"><div id="pedal-preview-clutch"></div></div>
+            <b id="pedal-bind-label-clutch">unbound</b>
+            <button type="button" data-bind="clutch">Bind</button>
+            <button type="button" data-clear="clutch">Clear</button>
+          </div>
+          <div class="pedal-row">
+            <span>Shift up</span>
+            <div class="pedal-preview"></div>
+            <b id="pedal-bind-label-gearUp">unbound</b>
+            <button type="button" data-bind="gearUp">Bind</button>
+            <button type="button" data-clear="gearUp">Clear</button>
+          </div>
+          <div class="pedal-row">
+            <span>Shift down</span>
+            <div class="pedal-preview"></div>
+            <b id="pedal-bind-label-gearDown">unbound</b>
+            <button type="button" data-bind="gearDown">Bind</button>
+            <button type="button" data-clear="gearDown">Clear</button>
+          </div>
+        </div>
+        <div class="row">
+          <span class="spacer"></span>
+          <button value="close" class="primary">Done</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="custom-dialog">
       <form method="dialog" class="custom-editor">

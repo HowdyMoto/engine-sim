@@ -230,5 +230,15 @@ recurrence.
 
 ## Controls
 
-Same scheme as the original — press **Controls** in the header for the full
-table.
+Same keyboard scheme as the original — press **Controls** in the header for
+the full table. The control panel below the scopes is a racing-style input
+cluster: ignition switch, momentary starter button, throttle and clutch
+telemetry bars, and a gear indicator with paddle buttons.
+
+Sim racing pedals and shifters work through the Gamepad API: open
+**Pedals…**, click Bind, and press the pedal or paddle you want. Binding is
+capture-based (`src/ui/gamepad.ts`) so any brand works regardless of which
+axis the pedal lives on, where it rests, or which direction it runs -
+calibration follows the captured movement and keeps widening as you drive.
+Pedal and keyboard inputs merge: whichever asks for more throttle (or more
+clutch slip) wins. Bindings persist per device in localStorage.

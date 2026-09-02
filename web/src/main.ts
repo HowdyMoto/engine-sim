@@ -13,6 +13,8 @@ import { compileCustomEngine, customEngineTemplate } from './builder/customEngin
 import { GaugeCluster } from './ui/gauges';
 import { ScopeCluster } from './ui/scopes';
 import { InputController, type Modifier } from './ui/input';
+import { GamepadInput } from './ui/gamepad';
+import type { AxisBinding, BindingTarget, ButtonBinding } from './ui/gamepad';
 import { S, defaultControlState } from './worker/protocol';
 import type { ControlState, EngineInfo, MainToWorker, WorkerToMain } from './worker/protocol';
 
@@ -54,6 +56,9 @@ class App {
 
   private readonly engineCanvas = element<HTMLCanvasElement>('engine-canvas');
   private renderErrorReported = false;
+  private gamepad = new GamepadInput();
+  private pedalThrottle = 0;
+  private pedalClutch = 0;
   private lastFuelVolume = 0;
   private lastFuelTime = 0;
   private fuelRate = 0;
@@ -291,6 +296,11 @@ class App {
     element('toggle-hold').addEventListener('click', () =>
       this.send({ dynoHold: !this.control.dynoHold }),
     );
+
+    element('gear-up').addEventListener('click', () => this.changeGear(this.control.gear + 1));
+    element('gear-down').addEventListener('click', () => this.changeGear(this.control.gear - 1));
+
+    this.bindPedalsDialog();
 
     const starterButton = element('toggle-starter');
     const startCranking = () => this.send({ starter: true });
@@ -580,11 +590,22 @@ class App {
     const analog = this.input.update(dt);
     this.updateDyno(dt, this.latestState);
 
+    // Sim racing pedals: the pedal and the keyboard/slider both drive the
+    // controls; whichever asks for more throttle (or more clutch slip) wins.
+    const pedals = this.gamepad.poll();
+    this.pedalThrottle = pedals.throttle ?? 0;
+    this.pedalClutch = pedals.clutch ?? 0;
+    if (pedals.gearUp) this.changeGear(this.control.gear + 1);
+    if (pedals.gearDown) this.changeGear(this.control.gear - 1);
+
+    const speedControl = Math.max(analog.speedControl, this.pedalThrottle);
+    const clutchPressure = Math.min(analog.clutchPressure, 1 - this.pedalClutch);
+
     if (this.started) {
       const starter = this.input.starterHeld;
       const update: Partial<ControlState> = {
-        speedControl: analog.speedControl,
-        clutchPressure: analog.clutchPressure,
+        speedControl,
+        clutchPressure,
         dynoSpeed: units.rpm(this.dynoSpeedRpm),
       };
 
@@ -592,6 +613,8 @@ class App {
 
       this.send(update);
     }
+
+    this.updateControlPanel(speedControl, clutchPressure, pedals.connected);
 
     if (this.latestState !== null) {
       // A rendering exception must never kill the loop: log it, drop the
@@ -700,6 +723,101 @@ class App {
     });
   }
 
+  private updateControlPanel(throttle: number, clutch: number, padConnected: boolean): void {
+    const set = (id: string, text: string) => {
+      const el = document.getElementById(id);
+      if (el !== null && el.textContent !== text) el.textContent = text;
+    };
+
+    const throttleBar = document.getElementById('bar-throttle');
+    if (throttleBar !== null) throttleBar.style.height = `${Math.round(throttle * 100)}%`;
+    // The clutch bar reads as pedal input, the way a racing display draws
+    // it: pressed pedal (disengaged clutch) fills the bar.
+    const clutchInput = 1 - clutch;
+    const clutchBar = document.getElementById('bar-clutch');
+    if (clutchBar !== null) clutchBar.style.height = `${Math.round(clutchInput * 100)}%`;
+    set('bar-throttle-pct', String(Math.round(throttle * 100)));
+    set('bar-clutch-pct', String(Math.round(clutchInput * 100)));
+
+    const dot = document.getElementById('pedals-status');
+    if (dot !== null && dot.dataset.connected !== String(padConnected)) {
+      dot.dataset.connected = String(padConnected);
+      dot.title = padConnected ? 'Device connected' : 'No device';
+    }
+
+    // Live previews while the pedals dialog is open.
+    const dialog = document.getElementById('pedals-dialog') as HTMLDialogElement | null;
+    if (dialog?.open) {
+      const throttlePreview = document.getElementById('pedal-preview-throttle');
+      if (throttlePreview !== null) {
+        throttlePreview.style.width = `${Math.round(this.pedalThrottle * 100)}%`;
+      }
+      const clutchPreview = document.getElementById('pedal-preview-clutch');
+      if (clutchPreview !== null) {
+        clutchPreview.style.width = `${Math.round(this.pedalClutch * 100)}%`;
+      }
+
+      const devices = this.gamepad.connectedPads();
+      set(
+        'pedals-devices',
+        devices.length === 0
+          ? 'No device detected — press a pedal or button to wake it.'
+          : `Connected: ${devices.join(', ')}`,
+      );
+    }
+  }
+
+  private describeBinding(binding: AxisBinding | ButtonBinding | undefined): string {
+    if (binding === undefined) return 'unbound';
+    const device = binding.gamepadId.length > 22
+      ? `${binding.gamepadId.slice(0, 22)}…`
+      : binding.gamepadId;
+    return binding.kind === 'axis'
+      ? `axis ${binding.axis} · ${device}`
+      : `button ${binding.button} · ${device}`;
+  }
+
+  private refreshPedalLabels(): void {
+    for (const target of ['throttle', 'clutch', 'gearUp', 'gearDown'] as BindingTarget[]) {
+      const label = document.getElementById(`pedal-bind-label-${target}`);
+      if (label === null) continue;
+      if (this.gamepad.capturing === target) {
+        label.textContent = 'press it now…';
+        label.dataset.capturing = 'true';
+      } else {
+        label.textContent = this.describeBinding(this.gamepad.bindings[target]);
+        label.dataset.capturing = 'false';
+      }
+    }
+  }
+
+  private bindPedalsDialog(): void {
+    const dialog = element<HTMLDialogElement>('pedals-dialog');
+
+    element('pedals-setup').addEventListener('click', () => {
+      this.refreshPedalLabels();
+      dialog.showModal();
+    });
+
+    dialog.addEventListener('close', () => this.gamepad.cancelCapture());
+
+    for (const button of dialog.querySelectorAll<HTMLButtonElement>('[data-bind]')) {
+      button.addEventListener('click', () => {
+        const target = button.dataset.bind as BindingTarget;
+        this.gamepad.startCapture(target, () => this.refreshPedalLabels());
+        this.refreshPedalLabels();
+      });
+    }
+
+    for (const button of dialog.querySelectorAll<HTMLButtonElement>('[data-clear]')) {
+      button.addEventListener('click', () => {
+        this.gamepad.clearBinding(button.dataset.clear as BindingTarget);
+        this.gamepad.cancelCapture();
+        this.refreshPedalLabels();
+      });
+    }
+  }
+
   private updateReadouts(state: Float32Array): void {
     const set = (id: string, text: string) => {
       const el = document.getElementById(id);
@@ -715,6 +833,7 @@ class App {
     set('r-manifold', `${(vacuum / units.inHg).toFixed(1)} inHg`);
     set('r-afr', state[S.IntakeAfr].toFixed(1));
     set('r-gear', gear < 0 ? 'N' : String(gear + 1));
+    set('gear-display', gear < 0 ? 'N' : String(gear + 1));
     set('r-clutch', `${(state[S.ClutchPressure] * 100).toFixed(0)}%`);
     set('r-speed', `${(state[S.VehicleSpeed] / units.mph).toFixed(0)} mph`);
 
