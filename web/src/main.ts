@@ -9,6 +9,7 @@ import { EngineAudio, loadImpulseResponse } from './audio/engineAudio';
 import { resolveImpulseResponse } from './audio/impulseResponses';
 import { EngineRenderer, DEFAULT_THEME } from './ui/renderer';
 import { GaugeCluster } from './ui/gauges';
+import { ScopeCluster } from './ui/scopes';
 import { InputController, type Modifier } from './ui/input';
 import { S, defaultControlState } from './worker/protocol';
 import type { ControlState, EngineInfo, MainToWorker, WorkerToMain } from './worker/protocol';
@@ -33,6 +34,7 @@ class App {
   private audio = new EngineAudio();
   private renderer: EngineRenderer;
   private gauges: GaugeCluster;
+  private scopes: ScopeCluster;
   private input: InputController;
 
   private info: EngineInfo | null = null;
@@ -56,6 +58,7 @@ class App {
   constructor() {
     this.renderer = new EngineRenderer(this.engineCanvas, DEFAULT_THEME);
     this.gauges = new GaugeCluster(this.gaugeCanvas, DEFAULT_THEME);
+    this.scopes = new ScopeCluster(element<HTMLCanvasElement>('scope-canvas'), DEFAULT_THEME);
 
     this.input = new InputController(document.body, {
       onToggleIgnition: () => {
@@ -123,6 +126,7 @@ class App {
     window.addEventListener('resize', () => {
       this.renderer.resize();
       this.gauges.resize();
+      this.scopes.resize();
     });
 
     document.addEventListener('visibilitychange', () => {
@@ -255,8 +259,10 @@ class App {
         this.info = message.info;
         this.renderer.setEngine(message.info);
         this.gauges.setEngine(message.info);
+        this.scopes.setEngine(message.info);
         this.renderer.resize();
         this.gauges.resize();
+        this.scopes.resize();
 
         element('engine-name').textContent = message.info.name;
         element('r-displacement').textContent = `${(message.info.displacement / units.L).toFixed(
@@ -275,7 +281,9 @@ class App {
 
       case 'frame':
         this.latestState = message.state;
+        this.scopes.ingest(message.state, message.scope);
         if (message.audio.length > 0 && this.started && !this.paused) {
+          this.scopes.pushAudio(message.audio);
           this.audio.push(message.audio);
         }
         break;
@@ -431,6 +439,7 @@ class App {
     if (this.latestState !== null) {
       this.renderer.render(this.latestState);
       this.gauges.render(this.latestState);
+      this.scopes.render();
       this.updateReadouts(this.latestState);
     }
 

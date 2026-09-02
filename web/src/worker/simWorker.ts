@@ -13,6 +13,9 @@ import { getEngineDefinition } from '../engines';
 import {
   C,
   S,
+  Sc,
+  SCOPE_MAX_SAMPLES,
+  SCOPE_STRIDE,
   crankshaftOffset,
   cylinderOffset,
   defaultControlState,
@@ -53,6 +56,41 @@ let audioDropped = false;
 
 let lastFrameTime = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
+
+// Scope samples for the current frame, recorded once per simulation step.
+const scopeScratch = new Float32Array(1 + SCOPE_MAX_SAMPLES * SCOPE_STRIDE);
+let scopeCount = 0;
+let scopeStride = 1;
+let scopeStep = 0;
+
+/** Whether each cylinder ignited at least once during this frame. */
+let litThisFrame = new Uint8Array(0);
+
+function sampleScope(): void {
+  const eng = engine!;
+
+  // Track ignition events every step so short flashes are not missed.
+  const cylinderCount = eng.getCylinderCount();
+  if (litThisFrame.length < cylinderCount) litThisFrame = new Uint8Array(cylinderCount);
+  for (let i = 0; i < cylinderCount; ++i) {
+    if (eng.getChamber(i).popLitLastFrame()) litThisFrame[i] = 1;
+  }
+
+  if (scopeStep++ % scopeStride !== 0 || scopeCount >= SCOPE_MAX_SAMPLES) return;
+
+  const chamber = eng.getChamber(0);
+  const piston = eng.getPiston(0);
+  const head = eng.getHead(piston.getCylinderBank().getIndex());
+  const cylinderIndex = piston.getCylinderIndex();
+
+  const base = 1 + scopeCount * SCOPE_STRIDE;
+  scopeScratch[base + Sc.CycleAngle] = eng.getOutputCrankshaft().getCycleAngle();
+  scopeScratch[base + Sc.CylinderPressure] = chamber.system.pressure();
+  scopeScratch[base + Sc.IntakeLift] = head.intakeValveLift(cylinderIndex);
+  scopeScratch[base + Sc.ExhaustLift] = head.exhaustValveLift(cylinderIndex);
+  scopeScratch[base + Sc.ExhaustFlow] = chamber.getLastIterationExhaustFlow();
+  ++scopeCount;
+}
 
 function post(message: WorkerToMain, transfer: Transferable[] = []): void {
   (self as unknown as Worker).postMessage(message, transfer);
@@ -336,6 +374,7 @@ function writeState(state: Float32Array, frameLoad: number): void {
     state[base + C.Temperature] = chamber.system.temperature();
     state[base + C.IntakeLift] = head.intakeValveLift(piston.getCylinderIndex());
     state[base + C.ExhaustLift] = head.exhaustValveLift(piston.getCylinderIndex());
+    state[base + C.Lit] = i < litThisFrame.length ? litThisFrame[i] : 0;
   }
 
   const crankBase = crankshaftOffset(cylinderCount);
@@ -386,8 +425,15 @@ function tick(): void {
     simulator.externalAudioLatency = audioBufferedSamples / audioSampleRate;
 
     simulator.startFrame(dt);
+
+    // Choose a decimation stride so a frame's steps fit the scope buffer.
+    scopeCount = 0;
+    scopeStep = 0;
+    scopeStride = Math.max(1, Math.ceil(simulator.simulationSteps() / SCOPE_MAX_SAMPLES));
+    litThisFrame.fill(0);
+
     while (simulator.simulateStep()) {
-      /* run the frame to completion */
+      sampleScope();
     }
     simulator.endFrame();
 
@@ -404,7 +450,10 @@ function tick(): void {
   );
   writeState(state, frameLoad);
 
-  post({ type: 'frame', state, audio }, [state.buffer, audio.buffer]);
+  scopeScratch[0] = scopeCount;
+  const scope = scopeScratch.slice(0, 1 + scopeCount * SCOPE_STRIDE);
+
+  post({ type: 'frame', state, audio, scope }, [state.buffer, audio.buffer, scope.buffer]);
 
   schedule(Math.max(0, TARGET_FRAME_SECONDS * 1000 - elapsed * 1000));
 }

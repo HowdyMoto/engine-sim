@@ -102,7 +102,7 @@ export type MainToWorker =
 
 export type WorkerToMain =
   | { type: 'loaded'; info: EngineInfo }
-  | { type: 'frame'; state: Float32Array; audio: Float32Array }
+  | { type: 'frame'; state: Float32Array; audio: Float32Array; scope: Float32Array }
   | { type: 'error'; message: string };
 
 // ---- Frame state layout ---------------------------------------------------
@@ -142,7 +142,7 @@ export const enum S {
 }
 
 /** Floats per cylinder in the frame state block. */
-export const CYLINDER_STRIDE = 10;
+export const CYLINDER_STRIDE = 11;
 
 export const enum C {
   PistonX = 0,
@@ -155,6 +155,8 @@ export const enum C {
   Temperature,
   IntakeLift,
   ExhaustLift,
+  /** 1 when this cylinder ignited during the frame. */
+  Lit,
 }
 
 export function frameStateSize(cylinderCount: number, crankshaftCount: number): number {
@@ -167,4 +169,21 @@ export function crankshaftOffset(cylinderCount: number): number {
 
 export function cylinderOffset(index: number): number {
   return S.HeaderSize + index * CYLINDER_STRIDE;
+}
+
+// ---- Scope buffer layout --------------------------------------------------
+//
+// One sample per simulation step (decimated to fit), recorded for cylinder 1
+// as the original's oscilloscope cluster does. Layout: [count, then count
+// samples of SCOPE_STRIDE floats].
+
+export const SCOPE_STRIDE = 5;
+export const SCOPE_MAX_SAMPLES = 2048;
+
+export const enum Sc {
+  CycleAngle = 0,
+  CylinderPressure,
+  IntakeLift,
+  ExhaustLift,
+  ExhaustFlow,
 }
