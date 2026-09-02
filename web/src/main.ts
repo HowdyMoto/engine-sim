@@ -111,7 +111,11 @@ class App {
     this.worker.onmessage = (event: MessageEvent<WorkerToMain>) => this.onWorkerMessage(event.data);
 
     this.audio.onStatus = (buffered) => {
-      this.post({ type: 'audioStatus', bufferedSamples: buffered });
+      this.post({
+        type: 'audioStatus',
+        bufferedSamples: buffered,
+        starvedSamples: this.audio.starvedSamples,
+      });
     };
 
     this.bindUi();
@@ -182,7 +186,7 @@ class App {
 
     const throttle = element<HTMLInputElement>('throttle');
     throttle.addEventListener('input', () => {
-      this.input.adjustSpeedSetting(Number(throttle.value) - this.input.getTargetSpeedSetting());
+      this.input.setBaseSpeedSetting(Number(throttle.value));
     });
 
     element('start-button').addEventListener('click', () => void this.start());
@@ -333,7 +337,7 @@ class App {
       }
       case ' ':
         this.input.adjustSpeedSetting(step * 0.01);
-        this.showBanner(`Throttle ${(this.input.getTargetSpeedSetting() * 100).toFixed(0)}%`);
+        this.showBanner(`Throttle ${(this.input.getBaseSpeedSetting() * 100).toFixed(0)}%`);
         break;
       default:
         break;
@@ -455,6 +459,7 @@ class App {
 
     const warp = state[S.SimulationSpeed];
     set('d-warp', warp >= 1 ? '1x' : `1/${Math.round(1 / warp)}x`);
+    set('d-drops', `${(this.audio.starvedSamples / this.audio.sampleRate).toFixed(2)} s`);
 
     const toggle = (id: string, active: boolean) => {
       const el = document.getElementById(id);
@@ -468,7 +473,7 @@ class App {
 
     const throttleSlider = element<HTMLInputElement>('throttle');
     if (document.activeElement !== throttleSlider) {
-      throttleSlider.value = String(this.input.getTargetSpeedSetting());
+      throttleSlider.value = String(this.input.getBaseSpeedSetting());
     }
   }
 }

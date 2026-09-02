@@ -17,8 +17,16 @@ class EngineAudioProcessor extends AudioWorkletProcessor {
     this.write = 0;
     this.count = 0;
     this.reportCounter = 0;
+    this.starved = 0;
     this.muted = true;
     this.gain = 0;
+
+    // Stay silent until enough audio has arrived to absorb frame-time jitter,
+    // otherwise the first tenth of a second plays as crackle while the
+    // simulation is still filling the queue.
+    this.primed = false;
+    this.preroll = Math.round(sampleRate * 0.05);
+    this.last = 0;
 
     this.port.onmessage = (event) => {
       const data = event.data;
@@ -26,6 +34,9 @@ class EngineAudioProcessor extends AudioWorkletProcessor {
         this.push(data.samples);
       } else if (data.type === 'reset') {
         this.read = this.write = this.count = 0;
+        this.starved = 0;
+        this.primed = false;
+        this.last = 0;
       } else if (data.type === 'mute') {
         this.muted = data.muted;
       }
@@ -56,12 +67,24 @@ class EngineAudioProcessor extends AudioWorkletProcessor {
     // Ramp gain so starting and stopping never clicks.
     const target = this.muted ? 0 : 1;
 
+    if (!this.primed && this.count >= this.preroll) this.primed = true;
+
     for (let i = 0; i < n; ++i) {
       let sample = 0;
-      if (this.count > 0) {
+
+      if (!this.primed) {
+        sample = 0;
+      } else if (this.count > 0) {
         sample = this.buffer[this.read];
         this.read = (this.read + 1) % this.capacity;
         --this.count;
+        this.last = sample;
+      } else {
+        // Ran dry. Decaying the last sample rather than snapping to zero keeps
+        // a brief hiccup from turning into a click.
+        this.last *= 0.995;
+        sample = this.last;
+        ++this.starved;
       }
 
       this.gain += (target - this.gain) * 0.001;
@@ -75,7 +98,7 @@ class EngineAudioProcessor extends AudioWorkletProcessor {
     this.reportCounter += n;
     if (this.reportCounter >= 1024) {
       this.reportCounter = 0;
-      this.port.postMessage({ type: 'status', buffered: this.count });
+      this.port.postMessage({ type: 'status', buffered: this.count, starved: this.starved });
     }
 
     return true;
@@ -93,6 +116,9 @@ export class EngineAudio {
 
   /** Latest buffer occupancy reported by the worklet, in samples. */
   bufferedSamples = 0;
+
+  /** Samples the worklet had to invent because its buffer ran dry. */
+  starvedSamples = 0;
 
   onStatus: ((bufferedSamples: number) => void) | null = null;
 
@@ -120,9 +146,10 @@ export class EngineAudio {
       });
 
       this.node.port.onmessage = (event: MessageEvent) => {
-        const data = event.data as { type: string; buffered: number };
+        const data = event.data as { type: string; buffered: number; starved: number };
         if (data.type === 'status') {
           this.bufferedSamples = data.buffered;
+          this.starvedSamples = data.starved;
           this.onStatus?.(data.buffered);
         }
       };
@@ -170,6 +197,7 @@ export class EngineAudio {
   reset(): void {
     this.node?.port.postMessage({ type: 'reset' });
     this.bufferedSamples = 0;
+    this.starvedSamples = 0;
   }
 
   async suspend(): Promise<void> {

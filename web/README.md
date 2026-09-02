@@ -85,12 +85,23 @@ commented at the site.
    itself, so the render pass runs at the end of each input block. The 2000
    queued-sample cap is kept, because the latency feedback loop depends on it.
 
-4. **Adaptive quality.** The original exposes simulation frequency as a manual
-   control. A browser has to cope with whatever hardware it lands on, so the
-   worker trades fluid sub-steps and simulation rate against measured frame
-   load. Pin it from the Quality menu to disable that.
+4. **Adaptive quality and a bounded catch-up.** The original exposes simulation
+   frequency as a manual control and keeps up natively. A browser has to cope
+   with whatever hardware it lands on, so the worker trades fluid sub-steps and
+   simulation rate against measured frame load and against actual audio
+   dropouts, which arrive sooner than the load average does. The per-frame step
+   count is also capped at two frames' worth: it derives from elapsed time, so
+   an unbounded catch-up spirals - a long frame asks for more steps, which
+   takes longer still, until the audio queue starves. Under load the simulation
+   falls slightly behind wall clock instead. Pin the Quality menu to disable
+   the adaptation.
 
-5. **Injectable RNG.** Combustion efficiency is randomised per ignition event.
+5. **A persistent throttle.** Q/W/E/R are momentary in the original and the
+   throttle returns to zero on release. The on-screen slider sets a base
+   position that the momentary keys still override - identical behaviour when
+   the slider is left at zero.
+
+6. **Injectable RNG.** Combustion efficiency is randomised per ignition event.
    That randomness now goes through `core/random.ts` so tests can seed it; the
    default is `Math.random`, as before.
 

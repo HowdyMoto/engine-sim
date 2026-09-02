@@ -95,7 +95,7 @@ export type MainToWorker =
   | { type: 'load'; engineId: string; audioSampleRate: number }
   | { type: 'control'; control: Partial<ControlState> }
   | { type: 'impulseResponse'; samples: Int16Array }
-  | { type: 'audioStatus'; bufferedSamples: number }
+  | { type: 'audioStatus'; bufferedSamples: number; starvedSamples: number }
   | { type: 'setQuality'; simulationFrequency: number; fluidSimulationSteps: number }
   | { type: 'autoQuality'; enabled: boolean }
   | { type: 'pause'; paused: boolean };

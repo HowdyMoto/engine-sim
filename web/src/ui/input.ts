@@ -26,6 +26,18 @@ export class InputController {
 
   /** Smoothed speed control, matching the original's 0.5 blend per frame. */
   speedSetting = 0;
+
+  /**
+   * Persistent throttle position, set by the on-screen slider or Space+scroll.
+   *
+   * The original has no slider: Q/W/E/R are momentary and the throttle falls
+   * back to zero on release unless Space is held. Keeping a base position lets
+   * the slider hold a throttle open while the momentary keys still override it,
+   * which is the same behaviour when the base is left at zero.
+   */
+  private baseSpeedSetting = 0;
+
+  /** Throttle requested this frame, after momentary key overrides. */
   private targetSpeedSetting = 0;
 
   /** Clutch pressure, 1 = fully engaged. */
@@ -154,16 +166,15 @@ export class InputController {
    * clutch and Space slows clutch engagement.
    */
   update(dt: number): { speedControl: number; clutchPressure: number } {
-    const fineControl = this.held.has(' ');
+    let target = this.baseSpeedSetting;
 
-    if (!fineControl) this.targetSpeedSetting = 0;
+    if (this.held.has('q')) target = 0.01;
+    else if (this.held.has('w')) target = 0.1;
+    else if (this.held.has('e')) target = 0.2;
+    else if (this.held.has('r')) target = 1.0;
 
-    if (this.held.has('q')) this.targetSpeedSetting = 0.01;
-    else if (this.held.has('w')) this.targetSpeedSetting = 0.1;
-    else if (this.held.has('e')) this.targetSpeedSetting = 0.2;
-    else if (this.held.has('r')) this.targetSpeedSetting = 1.0;
-
-    this.speedSetting = this.targetSpeedSetting * 0.5 + 0.5 * this.speedSetting;
+    this.targetSpeedSetting = target;
+    this.speedSetting = target * 0.5 + 0.5 * this.speedSetting;
 
     if (this.held.has('t')) this.targetClutchPressure -= 0.2 * dt;
     else if (this.held.has('u')) this.targetClutchPressure += 0.2 * dt;
@@ -181,9 +192,18 @@ export class InputController {
 
   /** Fine throttle adjustment via Space + scroll. */
   adjustSpeedSetting(delta: number): void {
-    this.targetSpeedSetting = clamp(this.targetSpeedSetting + delta);
+    this.baseSpeedSetting = clamp(this.baseSpeedSetting + delta);
   }
 
+  setBaseSpeedSetting(value: number): void {
+    this.baseSpeedSetting = clamp(value);
+  }
+
+  getBaseSpeedSetting(): number {
+    return this.baseSpeedSetting;
+  }
+
+  /** Throttle requested this frame, including any momentary key override. */
   getTargetSpeedSetting(): number {
     return this.targetSpeedSetting;
   }

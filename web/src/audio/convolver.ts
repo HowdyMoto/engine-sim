@@ -177,7 +177,10 @@ export class PartitionedConvolver {
     this.overlap.fill(0);
 
     // Prime the output with one block of silence so reads never underrun.
-    this.output = new Float64Array(Math.max(BLOCK_SIZE * 4, FFT_SIZE * 2));
+    // `process` drains as it goes, so occupancy never exceeds two blocks
+    // regardless of how many samples a caller asks for in one go; the extra
+    // headroom here is margin, not a limit.
+    this.output = new Float64Array(BLOCK_SIZE * 8);
     this.output.fill(0);
     this.outputRead = 0;
     this.outputWrite = BLOCK_SIZE;
@@ -188,18 +191,27 @@ export class PartitionedConvolver {
 
   /**
    * Convolve `count` samples from `input`, writing the same number of samples
-   * to `output`. Input and output may be the same array.
+   * to `output`. Input and output may be the same array, and `count` may be
+   * any size.
+   *
+   * Output is drained into the caller's buffer as each internal block
+   * completes rather than after the whole request. Deferring it would let a
+   * large request produce more samples than the ring holds and overwrite ones
+   * that had not been read yet.
    */
   process(input: Float32Array, output: Float32Array, count: number): void {
     if (!this.ready) {
-      if (input !== output) output.set(input.subarray(0, count));
+      if (input !== output) {
+        for (let i = 0; i < count; ++i) output[i] = input[i];
+      }
       return;
     }
 
     let consumed = 0;
+    let emitted = 0;
+
     while (consumed < count) {
-      const room = BLOCK_SIZE - this.inputFill;
-      const take = Math.min(room, count - consumed);
+      const take = Math.min(BLOCK_SIZE - this.inputFill, count - consumed);
 
       for (let i = 0; i < take; ++i) {
         this.inputBlock[this.inputFill + i] = input[consumed + i];
@@ -212,11 +224,14 @@ export class PartitionedConvolver {
         this.processBlock();
         this.inputFill = 0;
       }
+
+      while (emitted < consumed && this.outputCount > 0) {
+        output[emitted++] = this.readOutput();
+      }
     }
 
-    for (let i = 0; i < count; ++i) {
-      output[i] = this.outputCount > 0 ? this.readOutput() : 0;
-    }
+    // Only reachable before the priming block has been paid back.
+    while (emitted < count) output[emitted++] = 0;
   }
 
   private readOutput(): number {

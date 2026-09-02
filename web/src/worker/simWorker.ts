@@ -25,7 +25,10 @@ import {
 import type { Engine } from '../engine/engine';
 
 const TARGET_FRAME_SECONDS = 1 / 60;
-const TARGET_AUDIO_BUFFER_SECONDS = 0.09;
+// The original targets 0.1 s of queued audio. A browser frame is jitterier
+// than a native one - a sharp load change can starve the queue before the
+// quality controller reacts - so this carries a little more cushion.
+const TARGET_AUDIO_BUFFER_SECONDS = 0.13;
 
 let engine: Engine | null = null;
 let simulator: PistonEngineSimulator | null = null;
@@ -45,6 +48,8 @@ let audioScratch = new Int16Array(8192);
 let autoQuality = true;
 let qualityCooldown = 0;
 let frameLoadAverage = 0;
+let lastStarvedSamples = 0;
+let audioDropped = false;
 
 let lastFrameTime = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -134,6 +139,7 @@ function load(engineId: string): void {
   simulator.setAudioSampleRate(audioSampleRate);
   simulator.setSimulationFrequency(engine.getSimulationFrequency());
   simulator.setFluidSimulationSteps(8);
+  simulator.setTargetSynthesizerLatency(TARGET_AUDIO_BUFFER_SECONDS);
   simulator.loadSimulation(engine, vehicle, transmission);
 
   control = {
@@ -232,6 +238,17 @@ function updateQuality(frameLoad: number): void {
 
   frameLoadAverage = frameLoadAverage * 0.95 + frameLoad * 0.05;
 
+  // An actual dropout is a stronger signal than averaged frame load, and it
+  // arrives sooner: a sharp load change (opening the throttle) can starve the
+  // audio well before the average crosses its threshold.
+  const dropped = audioDropped;
+  audioDropped = false;
+
+  if (dropped) {
+    frameLoadAverage = Math.max(frameLoadAverage, 1.0);
+    qualityCooldown = Math.min(qualityCooldown, 15);
+  }
+
   if (qualityCooldown > 0) {
     --qualityCooldown;
     return;
@@ -239,7 +256,7 @@ function updateQuality(frameLoad: number): void {
 
   const nominalFrequency = engine.getSimulationFrequency();
 
-  if (frameLoadAverage > 0.9) {
+  if (frameLoadAverage > 0.85) {
     if (control.fluidSimulationSteps > 2) {
       applyControl({ fluidSimulationSteps: control.fluidSimulationSteps - 1 });
       qualityCooldown = 90;
@@ -252,7 +269,7 @@ function updateQuality(frameLoad: number): void {
       });
       qualityCooldown = 90;
     }
-  } else if (frameLoadAverage < 0.6) {
+  } else if (frameLoadAverage < 0.55) {
     if (control.simulationFrequency < nominalFrequency) {
       applyControl({
         simulationFrequency: Math.min(
@@ -358,9 +375,14 @@ function tick(): void {
   let dt = (frameStart - lastFrameTime) / 1000;
   lastFrameTime = frameStart;
 
-  // A long stall (tab hidden, GC pause) must not turn into a huge catch-up.
+  // A slow frame must not ask for a proportionally bigger one next time. The
+  // step count comes straight from dt, so an unbounded catch-up spirals: one
+  // long frame requests more steps, which takes longer still, and the audio
+  // queue starves. Capping the catch-up at two frames means the simulation
+  // falls slightly behind wall clock under load - which the quality controller
+  // then works off - instead of collapsing.
   if (!Number.isFinite(dt) || dt <= 0) dt = TARGET_FRAME_SECONDS;
-  dt = Math.min(dt, 0.1);
+  dt = Math.min(dt, TARGET_FRAME_SECONDS * 2);
 
   let audio: Float32Array<ArrayBuffer> = new Float32Array(0);
 
@@ -421,6 +443,8 @@ self.onmessage = (event: MessageEvent<MainToWorker>) => {
 
       case 'audioStatus':
         audioBufferedSamples = message.bufferedSamples;
+        if (message.starvedSamples > lastStarvedSamples) audioDropped = true;
+        lastStarvedSamples = message.starvedSamples;
         break;
 
       case 'setQuality':

@@ -42,9 +42,17 @@ await new Promise((r) => setTimeout(r, 2500));
 await page.keyboard.up('s');
 await new Promise((r) => setTimeout(r, 2500));
 
-// Give it some throttle.
-await page.keyboard.down('w');
-await new Promise((r) => setTimeout(r, 2000));
+// Hold throttle open with the slider, which must persist without a key held.
+await page.evaluate(() => {
+  const slider = document.getElementById('throttle');
+  slider.value = '0.25';
+  slider.dispatchEvent(new Event('input', { bubbles: true }));
+  slider.blur();
+});
+await new Promise((r) => setTimeout(r, 3000));
+
+const dropsEarly = await page.evaluate(() => document.getElementById('d-drops')?.textContent);
+await new Promise((r) => setTimeout(r, 5000));
 
 const readouts = await page.evaluate(() => {
   const text = (id) => document.getElementById(id)?.textContent ?? '';
@@ -60,12 +68,11 @@ const readouts = await page.evaluate(() => {
     load: text('d-load'),
     latency: text('d-latency'),
     steps: text('d-steps'),
+    drops: text('d-drops'),
   };
 });
 
-await page.keyboard.up('w');
-
-console.log(JSON.stringify(readouts, null, 2));
+console.log(JSON.stringify({ ...readouts, dropsEarly }, null, 2));
 console.log('--- console ---');
 console.log(logs.slice(0, 40).join('\n'));
 
