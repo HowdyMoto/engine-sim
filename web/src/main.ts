@@ -53,6 +53,7 @@ class App {
   private impulseResponses = new Map<string, Int16Array>();
 
   private readonly engineCanvas = element<HTMLCanvasElement>('engine-canvas');
+  private renderErrorReported = false;
   private lastFuelVolume = 0;
   private lastFuelTime = 0;
   private fuelRate = 0;
@@ -593,10 +594,20 @@ class App {
     }
 
     if (this.latestState !== null) {
-      this.renderer.render(this.latestState);
-      this.gauges.render(this.latestState);
-      this.scopes.render();
-      this.updateReadouts(this.latestState);
+      // A rendering exception must never kill the loop: log it, drop the
+      // frame, keep the app alive.
+      try {
+        this.renderer.render(this.latestState);
+        this.gauges.render(this.latestState);
+        this.scopes.render();
+        this.updateReadouts(this.latestState);
+      } catch (error) {
+        if (!this.renderErrorReported) {
+          this.renderErrorReported = true;
+          console.error('render failed; frame dropped', error);
+          this.showBanner('Rendering error — frame dropped (see console)', 6000);
+        }
+      }
     }
 
     if (this.bannerTimer !== 0 && now > this.bannerTimer) {

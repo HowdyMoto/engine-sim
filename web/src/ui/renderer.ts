@@ -340,6 +340,21 @@ export class EngineRenderer {
     const pressure = state[base + C.Pressure];
     const temperature = state[base + C.Temperature];
 
+    // Canvas gradients throw on non-finite coordinates (unlike every other
+    // canvas call, which ignores them) - and a thrown frame kills the
+    // animation loop. Whatever produced a bad pose, skip this cylinder
+    // rather than take the app down with it.
+    if (
+      !Number.isFinite(pistonX) ||
+      !Number.isFinite(pistonY) ||
+      !Number.isFinite(pistonTheta) ||
+      !Number.isFinite(rodX) ||
+      !Number.isFinite(rodY) ||
+      !Number.isFinite(rodTheta)
+    ) {
+      return;
+    }
+
     // Rod: big end to little end, drawn as a tapered beam.
     const cos = Math.cos(rodTheta);
     const sin = Math.sin(rodTheta);
