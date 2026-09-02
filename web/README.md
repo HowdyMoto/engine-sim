@@ -28,6 +28,7 @@ that, press <kbd>A</kbd> for ignition and hold <kbd>S</kbd> to crank.
 | `src/audio/` | `synthesizer.cpp` and the `*_filter` files |
 | `src/builder/`, `src/engines/` | the `.mr` scripting language and `assets/engines` |
 | `src/ui/`, `src/main.ts` | `engine_sim_application.cpp` and the gauge clusters |
+| `src/ui/themes.ts` | `assets/themes/*.mr` (all six themes, selectable in the header) |
 | `src/wasm/`, `wasm/assembly/` | (new) WebAssembly kernels for the gas-system hot path |
 
 ## Architecture

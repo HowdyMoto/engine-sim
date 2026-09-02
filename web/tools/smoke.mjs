@@ -30,6 +30,11 @@ if (engineId) {
   await page.select('#engine-select', engineId);
 }
 
+// Optional theme, e.g. THEME=paper node tools/smoke.mjs ...
+if (process.env.THEME) {
+  await page.select('#theme-select', process.env.THEME);
+}
+
 // Start the simulator, turn on the ignition and crank it.
 await page.click('#start-button');
 await new Promise((r) => setTimeout(r, 1500));

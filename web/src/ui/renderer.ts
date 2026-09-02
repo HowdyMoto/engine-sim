@@ -22,6 +22,16 @@ export interface Theme {
   hot: string;
   cold: string;
   outline: string;
+  /** Head casting color - the original paints its castings theme pink. */
+  head: string;
+  /** Intake-side tint (ports and valves). */
+  intake: string;
+  /** Exhaust-side tint (ports and valves). */
+  exhaust: string;
+  /** Combustion color, packed 0xRRGGBB for gradient math. */
+  flame: number;
+  /** Muted foreground for labels. */
+  fgDim: string;
 }
 
 export const DEFAULT_THEME: Theme = {
@@ -35,6 +45,11 @@ export const DEFAULT_THEME: Theme = {
   hot: '#ff6b3d',
   cold: '#3d7dff',
   outline: '#0b0d10',
+  head: '#c2809d',
+  intake: '#77cee0',
+  exhaust: '#fdbd2e',
+  flame: 0xf4802a,
+  fgDim: 'rgba(231, 236, 242, 0.5)',
 };
 
 interface CylinderDraw {
@@ -64,6 +79,10 @@ export class EngineRenderer {
     const ctx = canvas.getContext('2d');
     if (ctx === null) throw new Error('2D canvas context unavailable');
     this.ctx = ctx;
+  }
+
+  setTheme(theme: Theme): void {
+    this.theme = theme;
   }
 
   setEngine(info: EngineInfo): void {
@@ -235,16 +254,17 @@ export class EngineRenderer {
       ctx.lineTo(...point(deck + bore * 0.5, -halfBore * 1.16));
       ctx.lineTo(...point(deck, -halfBore * 1.16));
       ctx.closePath();
-      ctx.fillStyle = this.theme.metalDark;
+      ctx.fillStyle = this.theme.head;
       ctx.fill();
       ctx.strokeStyle = this.theme.metal;
       ctx.stroke();
 
-      // Port channels above each valve: intake cold-tinted, exhaust warm.
+      // Port channels above each valve: intake tint on one side, exhaust
+      // on the other.
       const intakeSide = bank.flipDisplay ? 1 : -1;
       for (const [side, tint] of [
-        [intakeSide, this.theme.cold],
-        [-intakeSide, this.theme.hot],
+        [intakeSide, this.theme.intake],
+        [-intakeSide, this.theme.exhaust],
       ] as [number, string][]) {
         const t = side * bore * 0.24;
         ctx.beginPath();
@@ -393,9 +413,14 @@ export class EngineRenderer {
       ctx.lineTo(...point(sDeck, -halfBore));
       ctx.closePath();
 
-      const r = Math.round(90 + heat * 165);
-      const g = Math.round(120 + heat * 60);
-      const bch = Math.round(220 - heat * 160);
+      const flame = this.theme.flame;
+      const fr = (flame >> 16) & 0xff;
+      const fgr = (flame >> 8) & 0xff;
+      const fb = flame & 0xff;
+      // Cold charge to combustion color as temperature rises.
+      const r = Math.round(90 + heat * (fr - 90));
+      const g = Math.round(120 + heat * (fgr - 120));
+      const bch = Math.round(220 + heat * (fb - 220));
       ctx.save();
       ctx.globalAlpha = Math.max(alpha, flash * 0.4);
       ctx.fillStyle = `rgb(${r}, ${g}, ${bch})`;
@@ -406,9 +431,9 @@ export class EngineRenderer {
         const [cx, cy] = point(sDeck, 0);
         const radius = Math.max(1, bank.bore * 0.55 * this.scale);
         const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-        gradient.addColorStop(0, `rgba(255, 244, 214, ${0.95 * flash})`);
-        gradient.addColorStop(0.5, `rgba(255, 168, 74, ${0.55 * flash})`);
-        gradient.addColorStop(1, 'rgba(255, 120, 40, 0)');
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${0.9 * flash})`);
+        gradient.addColorStop(0.5, `rgba(${fr}, ${fgr}, ${fb}, ${0.6 * flash})`);
+        gradient.addColorStop(1, `rgba(${fr}, ${fgr}, ${fb}, 0)`);
         ctx.globalAlpha = 1;
         ctx.fillStyle = gradient;
         ctx.fill();
@@ -435,7 +460,7 @@ export class EngineRenderer {
       state[base + C.IntakeLift],
       bank.maxIntakeLift,
       state[base + C.IntakeCamAngle],
-      this.theme.cold,
+      this.theme.intake,
     );
     this.drawValveAssembly(
       bank,
@@ -443,7 +468,7 @@ export class EngineRenderer {
       state[base + C.ExhaustLift],
       bank.maxExhaustLift,
       state[base + C.ExhaustCamAngle],
-      this.theme.hot,
+      this.theme.exhaust,
     );
   }
 

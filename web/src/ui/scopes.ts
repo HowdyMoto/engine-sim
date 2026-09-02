@@ -71,6 +71,10 @@ export class ScopeCluster {
     this.ctx = ctx;
   }
 
+  setTheme(theme: Theme): void {
+    this.theme = theme;
+  }
+
   setEngine(info: EngineInfo): void {
     this.info = info;
     this.pressure.clear();
@@ -181,7 +185,7 @@ export class ScopeCluster {
     ctx.fillStyle = this.theme.shadow;
     ctx.fillRect(x, y, w, h);
 
-    ctx.fillStyle = 'rgba(231, 236, 242, 0.45)';
+    ctx.fillStyle = this.theme.fgDim;
     ctx.font = `500 ${Math.max(9, Math.round(h * 0.085))}px ui-sans-serif, system-ui, sans-serif`;
     ctx.textAlign = 'left';
     ctx.fillText(title, x + 6, y + Math.max(12, h * 0.12));
@@ -332,7 +336,7 @@ export class ScopeCluster {
         ctx.globalAlpha = 1;
       }
 
-      ctx.fillStyle = 'rgba(231, 236, 242, 0.6)';
+      ctx.fillStyle = this.theme.fgDim;
       ctx.font = `600 ${Math.max(8, radius * 0.9)}px ui-monospace, Menlo, monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

@@ -67,6 +67,10 @@ export class GaugeCluster {
     this.ctx = ctx;
   }
 
+  setTheme(theme: Theme): void {
+    this.theme = theme;
+  }
+
   setEngine(info: EngineInfo): void {
     this.info = info;
 
@@ -146,9 +150,11 @@ export class GaugeCluster {
       );
       ctx.beginPath();
       ctx.arc(cx, cy, radius, startAngle + sweep * redlineFraction, startAngle + sweep);
-      ctx.strokeStyle = 'rgba(255, 107, 61, 0.35)';
+      ctx.strokeStyle = this.theme.hot;
+      ctx.globalAlpha = 0.35;
       ctx.lineWidth = radius * 0.22;
       ctx.stroke();
+      ctx.globalAlpha = 1;
     }
 
     // Value.
@@ -179,7 +185,7 @@ export class GaugeCluster {
     ctx.font = `600 ${Math.round(radius * 0.36)}px ui-monospace, "SF Mono", Menlo, monospace`;
     ctx.fillText(value.toFixed(gauge.precision ?? 0), cx, cy + radius * 0.5);
 
-    ctx.fillStyle = 'rgba(231, 236, 242, 0.55)';
+    ctx.fillStyle = this.theme.fgDim;
     ctx.font = `500 ${Math.round(radius * 0.17)}px ui-sans-serif, system-ui, sans-serif`;
     ctx.fillText(gauge.label, cx, cy + radius * 0.78);
     ctx.fillText(gauge.unit, cx, cy - radius * 0.42);

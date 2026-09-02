@@ -8,6 +8,7 @@ import { ENGINES, DEFAULT_ENGINE_ID } from './engines';
 import { EngineAudio, loadImpulseResponse } from './audio/engineAudio';
 import { resolveImpulseResponse } from './audio/impulseResponses';
 import { EngineRenderer, DEFAULT_THEME } from './ui/renderer';
+import { THEMES, getTheme, buildTheme, applyCssTheme } from './ui/themes';
 import { GaugeCluster } from './ui/gauges';
 import { ScopeCluster } from './ui/scopes';
 import { InputController, type Modifier } from './ui/input';
@@ -181,6 +182,40 @@ class App {
       this.showBanner(`Quality: ${qualitySelect.value}`);
     });
 
+    const themeSelect = element<HTMLSelectElement>('theme-select');
+    for (const theme of THEMES) {
+      const option = document.createElement('option');
+      option.value = theme.id;
+      option.textContent = theme.label;
+      themeSelect.appendChild(option);
+    }
+    let savedTheme = 'default';
+    try {
+      savedTheme = localStorage.getItem('engine-sim-theme') ?? 'default';
+    } catch {
+      /* storage unavailable */
+    }
+    themeSelect.value = getTheme(savedTheme).id;
+
+    const applyTheme = (id: string): void => {
+      const named = getTheme(id);
+      const theme = buildTheme(named.palette);
+      applyCssTheme(named.palette);
+      this.renderer.setTheme(theme);
+      this.gauges.setTheme(theme);
+      this.scopes.setTheme(theme);
+    };
+    themeSelect.addEventListener('change', () => {
+      applyTheme(themeSelect.value);
+      try {
+        localStorage.setItem('engine-sim-theme', themeSelect.value);
+      } catch {
+        /* storage unavailable */
+      }
+      this.showBanner(`Theme: ${getTheme(themeSelect.value).label}`);
+    });
+    if (themeSelect.value !== 'default') applyTheme(themeSelect.value);
+
     const volume = element<HTMLInputElement>('volume');
     volume.addEventListener('input', () => {
       this.audio.setVolume(Number(volume.value));
@@ -299,7 +334,41 @@ class App {
 
     switch (modifier) {
       case 'z': {
-        const volume = element<HTMLInputElement>('volume');
+        const themeSelect = element<HTMLSelectElement>('theme-select');
+    for (const theme of THEMES) {
+      const option = document.createElement('option');
+      option.value = theme.id;
+      option.textContent = theme.label;
+      themeSelect.appendChild(option);
+    }
+    let savedTheme = 'default';
+    try {
+      savedTheme = localStorage.getItem('engine-sim-theme') ?? 'default';
+    } catch {
+      /* storage unavailable */
+    }
+    themeSelect.value = getTheme(savedTheme).id;
+
+    const applyTheme = (id: string): void => {
+      const named = getTheme(id);
+      const theme = buildTheme(named.palette);
+      applyCssTheme(named.palette);
+      this.renderer.setTheme(theme);
+      this.gauges.setTheme(theme);
+      this.scopes.setTheme(theme);
+    };
+    themeSelect.addEventListener('change', () => {
+      applyTheme(themeSelect.value);
+      try {
+        localStorage.setItem('engine-sim-theme', themeSelect.value);
+      } catch {
+        /* storage unavailable */
+      }
+      this.showBanner(`Theme: ${getTheme(themeSelect.value).label}`);
+    });
+    if (themeSelect.value !== 'default') applyTheme(themeSelect.value);
+
+    const volume = element<HTMLInputElement>('volume');
         volume.value = String(clamp(Number(volume.value) + step * 0.05, 0, 1.5));
         this.audio.setVolume(Number(volume.value));
         this.showBanner(`Volume ${(Number(volume.value) * 100).toFixed(0)}%`);
