@@ -1,5 +1,23 @@
 cmake_minimum_required(VERSION 3.10)
 
+# This fork drops the delta-studio submodule, which was 1.4 GB of prebuilt
+# binaries and an unrelated demo app - over 90% of the repository - and which
+# the TypeScript port in web/ does not use. The C++ simulation sources remain
+# as the reference implementation for that port, but the C++ application
+# renders through delta-studio and cannot be built without it.
+#
+# To build the C++ app, restore the submodule:
+#
+#   git submodule add https://github.com/ange-yaghi/delta-studio #       dependencies/submodules/delta-studio
+#
+# then revert this file and dependencies/submodules/CMakeLists.txt.
+if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/submodules/delta-studio/CMakeLists.txt")
+    message(FATAL_ERROR
+        "delta-studio is not present. This fork removed it to keep the "
+        "repository small; the browser port in web/ does not need it. See the "
+        "comment at the top of this file to restore it.")
+endif()
+
 option(DTV "Enable video output" OFF)
 option(PIRANHA_ENABLED "Enable scripting input" ON)
 option(DISCORD_ENABLED "Enable Discord Rich Presence" ON)

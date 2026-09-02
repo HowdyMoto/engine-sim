@@ -1,9 +1,5 @@
-add_subdirectory(delta-studio)
-
-set_property(TARGET delta-basic PROPERTY FOLDER "delta")
-set_property(TARGET delta-basic-demo PROPERTY FOLDER "delta")
-set_property(TARGET delta-core PROPERTY FOLDER "delta")
-set_property(TARGET delta-physics PROPERTY FOLDER "delta")
+# delta-studio (the DirectX renderer the C++ app draws through) is not vendored
+# in this fork; see the note in the root CMakeLists.txt.
 
 add_subdirectory(simple-2d-constraint-solver)
 

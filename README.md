@@ -16,6 +16,17 @@ on a Web Worker and sound through an AudioWorklet. See [web/README.md](web/READM
 cd web && npm install && npm run dev
 ```
 
+This fork also drops the `delta-studio` submodule. It was 1.4 GB — prebuilt
+binaries and an unrelated demo app, over 90% of the repository — and the browser
+port does not use it. The C++ simulation sources are all still here and serve as
+the reference for the port, but the C++ *application* renders through
+delta-studio and needs it restored to build:
+
+```
+git submodule add https://github.com/ange-yaghi/delta-studio dependencies/submodules/delta-studio
+```
+
+
 ## What is this?
 
 This is a real-time internal combustion engine simulation **designed specifically to produce engine audio and simulate engine response characteristics.** It is NOT a scientific tool and cannot be expected to provide accurate figures for the purposes of engineering or engine tuning.
