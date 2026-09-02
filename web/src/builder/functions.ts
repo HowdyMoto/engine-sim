@@ -35,6 +35,26 @@ export function flowFunction(
   return fn;
 }
 
+/**
+ * `add_flow_sample` as the BMW head defines it: lift in millimetres against a
+ * 1 mm filter radius, rather than thou against 50 thou.
+ */
+export function flowFunctionMm(
+  samples: [number, number][],
+  liftScale = 1.0,
+  flowAttenuation = 1.0,
+): Func {
+  const fn = new Func();
+  fn.initialize(samples.length, units.distance(1, units.mm));
+  for (const [lift, flow] of samples) {
+    fn.addSample(
+      units.distance(lift * liftScale, units.mm),
+      GasSystem.k_28inH2O(flow * flowAttenuation),
+    );
+  }
+  return fn;
+}
+
 export interface HarmonicCamLobeParameters {
   /** Duration measured at 50 thou of lift, in radians of crank angle. */
   durationAt50Thou: number;

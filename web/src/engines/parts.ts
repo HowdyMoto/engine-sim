@@ -132,6 +132,45 @@ export function genericSmallEngineHead(options: SmallEngineHeadOptions): Cylinde
   };
 }
 
+// ---- Intakes (`es/part-library/parts/intakes.mr`) -------------------------
+
+import { GasSystem } from '../engine/gasSystem';
+import type { IntakeSpec } from '../builder/spec';
+
+export function chevyBbcStockIntake(options?: {
+  carburetorCfm?: number;
+  idleFlowRateCfm?: number;
+  idleThrottlePlatePosition?: number;
+}): IntakeSpec {
+  return {
+    plenumVolume: units.volume(2.0, units.L),
+    plenumCrossSectionArea: units.area(100.0, units.cm2),
+    intakeFlowRate: GasSystem.k_carb(options?.carburetorCfm ?? 650.0),
+    idleFlowRate: GasSystem.k_carb(options?.idleFlowRateCfm ?? 1.0),
+    idleThrottlePlatePosition: options?.idleThrottlePlatePosition ?? 0.975,
+    runnerFlowRate: GasSystem.k_carb(300.0),
+    runnerLength: units.distance(6.0, units.inch),
+    velocityDecay: 1.0,
+  };
+}
+
+export function performerRpmIntake(options?: {
+  carburetorCfm?: number;
+  idleFlowRateCfm?: number;
+  idleThrottlePlatePosition?: number;
+}): IntakeSpec {
+  return {
+    plenumVolume: units.volume(2.0, units.L),
+    plenumCrossSectionArea: units.area(100.0, units.cm2),
+    intakeFlowRate: GasSystem.k_carb(options?.carburetorCfm ?? 650.0),
+    idleFlowRate: GasSystem.k_carb(options?.idleFlowRateCfm ?? 1.0),
+    idleThrottlePlatePosition: options?.idleThrottlePlatePosition ?? 0.975,
+    runnerFlowRate: GasSystem.k_carb(500.0),
+    runnerLength: units.distance(6.0, units.inch),
+    velocityDecay: 0.1,
+  };
+}
+
 // ---- Camshaft layouts -----------------------------------------------------
 
 export interface LobeCenters {
