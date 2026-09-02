@@ -21,7 +21,7 @@ simulator.setSimulationFrequency(engine.getSimulationFrequency());
 simulator.setFluidSimulationSteps(8);
 simulator.loadSimulation(engine, vehicle, transmission);
 
-engine.setSpeedControl(1.0);
+engine.setSpeedControl(Number(process.argv[6] ?? 1.0));
 engine.getIgnitionModule().enabled = true;
 simulator.starterMotor.enabled = true;
 

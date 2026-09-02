@@ -58,7 +58,8 @@ cylinder banks and heads are the same concepts with the same numbers, and
 `EngineNode::buildEngine`. Porting another `.mr` file is a mechanical
 translation; no compiler for the scripting language is needed.
 
-Bundled: **GM LS V8**, **Subaru EJ25** (flat four), **Kohler CH750** (governed
+Bundled: **GM LS V8**, **Toyota 2JZ** (inline six), **Subaru EJ25** (flat four),
+**Suzuki Hayabusa** (inline four, 11 000 rpm), **Kohler CH750** (governed
 90° V-twin), **Radial 9** (articulated rods — one master rod on the crank
 journal, eight slaves on journals carried by the master's big end; it cranks
 slowly against 2.4 kg·m² of flywheel, so hold the starter).

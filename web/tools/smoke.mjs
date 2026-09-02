@@ -37,7 +37,7 @@ await new Promise((r) => setTimeout(r, 1500));
 await page.evaluate(() => {
   document.getElementById('toggle-ignition').click();
 });
-const crankMs = Number(process.argv[5] ?? 2500);
+const crankMs = Number(process.argv[5] ?? 4000);
 await page.keyboard.down('s');
 await new Promise((r) => setTimeout(r, crankMs));
 await page.keyboard.up('s');

@@ -66,6 +66,36 @@ export const SMALL_ENGINE_EXHAUST_FLOW: [number, number][] = [
   [700, 210],
 ];
 
+/**
+ * Four-valve port flow, shared verbatim by the EJ25 and 2JZ head definitions
+ * in `assets/engines/atg-video-2/`.
+ */
+export const MODERN_4V_INTAKE_FLOW: [number, number][] = [
+  [0, 0],
+  [50, 58],
+  [100, 103],
+  [150, 156],
+  [200, 214],
+  [250, 249],
+  [300, 268],
+  [350, 280],
+  [400, 280],
+  [450, 281],
+];
+
+export const MODERN_4V_EXHAUST_FLOW: [number, number][] = [
+  [0, 0],
+  [50, 37],
+  [100, 72],
+  [150, 113],
+  [200, 160],
+  [250, 196],
+  [300, 222],
+  [350, 235],
+  [400, 245],
+  [450, 246],
+];
+
 export interface SmallEngineHeadOptions {
   chamberVolume?: number;
   intakeRunnerVolume?: number;

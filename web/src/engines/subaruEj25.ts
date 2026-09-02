@@ -7,7 +7,7 @@ import { diskMomentOfInertia, rodMomentOfInertia } from '../core/utilities';
 import { GasSystem } from '../engine/gasSystem';
 import { flowFunction, harmonicCamLobe, makeFunction, timingCurve } from '../builder/functions';
 import { IgnitionWire, RodJournal } from '../builder/spec';
-import { connectWires } from './parts';
+import { connectWires, MODERN_4V_EXHAUST_FLOW, MODERN_4V_INTAKE_FLOW } from './parts';
 import type {
   CylinderBankSpec,
   EngineDefinition,
@@ -19,32 +19,6 @@ import type {
 const { k_carb, k_28inH2O } = GasSystem;
 
 const CYCLE = units.angle(2 * 360, units.deg);
-
-const INTAKE_FLOW: [number, number][] = [
-  [0, 0],
-  [50, 58],
-  [100, 103],
-  [150, 156],
-  [200, 214],
-  [250, 249],
-  [300, 268],
-  [350, 280],
-  [400, 280],
-  [450, 281],
-];
-
-const EXHAUST_FLOW: [number, number][] = [
-  [0, 0],
-  [50, 37],
-  [100, 72],
-  [150, 113],
-  [200, 160],
-  [250, 196],
-  [300, 222],
-  [350, 235],
-  [400, 245],
-  [450, 246],
-];
 
 function turbulenceToFlameSpeedRatio() {
   return makeFunction(5.0, [
@@ -165,8 +139,8 @@ export function subaruEj25Spec(): EngineSpec {
     exhaustRunnerVolume: units.volume(50.0, units.cc),
     exhaustRunnerCrossSectionArea:
       units.distance(1.25, units.inch) * units.distance(1.25, units.inch),
-    intakePortFlow: flowFunction(INTAKE_FLOW),
-    exhaustPortFlow: flowFunction(EXHAUST_FLOW),
+    intakePortFlow: flowFunction(MODERN_4V_INTAKE_FLOW),
+    exhaustPortFlow: flowFunction(MODERN_4V_EXHAUST_FLOW),
     valvetrain: {
       kind: 'standard' as const,
       intakeCamshaft: {

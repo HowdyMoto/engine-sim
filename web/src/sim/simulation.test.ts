@@ -8,7 +8,7 @@ import { Vehicle } from '../engine/vehicle';
 import { Transmission } from '../engine/transmission';
 import { buildEngine } from '../builder/buildEngine';
 import { PistonEngineSimulator } from './pistonEngineSimulator';
-import { ENGINES, gmLs, subaruEj25, kohlerCh750, radial9 } from '../engines';
+import { ENGINES, gmLs, subaruEj25, kohlerCh750, radial9, toyota2jz, hayabusa } from '../engines';
 import type { EngineDefinition } from '../builder/spec';
 
 // Combustion efficiency is randomised per ignition event; pin it so runs are
@@ -102,21 +102,21 @@ describe('GasSystem', () => {
 });
 
 describe('engine geometry', () => {
-  it('computes a plausible displacement for the LS V8', () => {
-    const engine = buildEngine(gmLs.engine());
-    const litres = engine.getDisplacement() / units.L;
+  // Nominal displacement of the real engine, and the tolerance the numerical
+  // approximation in calculateDisplacement is allowed.
+  const DISPLACEMENTS: [EngineDefinition, number, number][] = [
+    [gmLs, 5.7, 0.5],
+    [toyota2jz, 3.0, 0.3],
+    [subaruEj25, 2.5, 0.3],
+    [hayabusa, 1.34, 0.2],
+    [kohlerCh750, 0.75, 0.15],
+    [radial9, 16.5, 2.0],
+  ];
 
-    // 3.78 in bore x 3.622 in stroke x 8 = 5.7 L.
-    expect(litres).toBeGreaterThan(5.2);
-    expect(litres).toBeLessThan(6.2);
-  });
-
-  it('computes a plausible displacement for the EJ25', () => {
-    const engine = buildEngine(subaruEj25.engine());
-    const litres = engine.getDisplacement() / units.L;
-
-    expect(litres).toBeGreaterThan(2.2);
-    expect(litres).toBeLessThan(2.8);
+  it.each(DISPLACEMENTS)('computes %s displacement', (definition, nominal, tolerance) => {
+    const litres = buildEngine(definition.engine()).getDisplacement() / units.L;
+    expect(litres).toBeGreaterThan(nominal - tolerance);
+    expect(litres).toBeLessThan(nominal + tolerance);
   });
 
   it('assigns every cylinder a firing angle', () => {
@@ -208,6 +208,26 @@ describe('piston engine simulation', () => {
     // The governor's idle target is 1600 rpm.
     expect(engine.getRpm()).toBeGreaterThan(900);
     expect(engine.getRpm()).toBeLessThan(2600);
+  }, 180_000);
+});
+
+describe('bundled engines', () => {
+  it.each([
+    [toyota2jz, 2000],
+    [hayabusa, 2000],
+  ])('starts %s and keeps it running', (definition, minimumRpm) => {
+    const { engine, simulator } = makeSimulator(definition);
+
+    engine.setSpeedControl(1.0);
+    engine.getIgnitionModule().enabled = true;
+    simulator.starterMotor.enabled = true;
+    run(simulator, 1.5);
+
+    simulator.starterMotor.enabled = false;
+    run(simulator, 1.5);
+
+    expect(engine.getRpm()).toBeGreaterThan(minimumRpm);
+    expect(engine.getRpm()).toBeLessThan(units.toRpm(engine.getRedline()) * 1.3);
   }, 180_000);
 });
 
