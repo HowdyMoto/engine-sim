@@ -25,6 +25,7 @@ import {
   type MainToWorker,
   type WorkerToMain,
 } from './protocol';
+import { bindEngineToKernels } from '../wasm/bindEngine';
 import type { Engine } from '../engine/engine';
 
 const TARGET_FRAME_SECONDS = 1 / 60;
@@ -48,6 +49,7 @@ let audioBufferedSamples = 0;
 const impulseResponses = new Map<number, { samples: Int16Array; volume: number }>();
 let audioScratch = new Int16Array(8192);
 
+let wasmActive = false;
 let autoQuality = true;
 let qualityCooldown = 0;
 let frameLoadAverage = 0;
@@ -179,6 +181,10 @@ function load(engineId: string): void {
   simulator.setFluidSimulationSteps(8);
   simulator.setTargetSynthesizerLatency(TARGET_AUDIO_BUFFER_SECONDS);
   simulator.loadSimulation(engine, vehicle, transmission);
+
+  // Route the gas hot path through the WASM kernels; the JS implementation
+  // stays as reference and fallback if instantiation fails.
+  wasmActive = bindEngineToKernels(engine);
 
   control = {
     ...defaultControlState(),
@@ -355,6 +361,7 @@ function writeState(state: Float32Array, frameLoad: number): void {
   state[S.FilteredEngineSpeed] = sim.filteredEngineSpeed();
   state[S.SimulationSpeed] = sim.getSimulationSpeed();
   state[S.RevLimiterActive] = eng.getIgnitionModule().isRevLimiterActive() ? 1 : 0;
+  state[S.WasmActive] = wasmActive ? 1 : 0;
 
   const cylinderCount = eng.getCylinderCount();
   for (let i = 0; i < cylinderCount; ++i) {

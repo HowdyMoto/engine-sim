@@ -8,6 +8,8 @@ import { Vehicle } from '../engine/vehicle';
 import { Transmission } from '../engine/transmission';
 import { buildEngine } from '../builder/buildEngine';
 import { PistonEngineSimulator } from './pistonEngineSimulator';
+import { setGasKernels } from '../engine/gasSystem';
+import { bindEngineToKernels } from '../wasm/bindEngine';
 import type { EngineDefinition } from '../builder/spec';
 
 export interface BenchmarkResult {
@@ -18,12 +20,14 @@ export interface BenchmarkResult {
   rpm: number;
   millisecondsPerFrame: number;
   realtimeFactor: number;
+  wasm: boolean;
 }
 
 export function benchmark(
   definition: EngineDefinition,
   seconds = 4.0,
   fluidSteps = 8,
+  useWasm = false,
 ): BenchmarkResult {
   const engine = buildEngine(definition.engine());
 
@@ -38,6 +42,8 @@ export function benchmark(
   simulator.setSimulationFrequency(engine.getSimulationFrequency());
   simulator.setFluidSimulationSteps(fluidSteps);
   simulator.loadSimulation(engine, vehicle, transmission);
+
+  const wasmActive = useWasm ? bindEngineToKernels(engine) : (setGasKernels(null), false);
 
   engine.setSpeedControl(0.0);
   engine.getIgnitionModule().enabled = true;
@@ -82,6 +88,7 @@ export function benchmark(
     rpm: engine.getRpm(),
     millisecondsPerFrame: elapsed / measuredFrames,
     realtimeFactor: simulatedSeconds / (elapsed / 1000),
+    wasm: wasmActive,
   };
 }
 
@@ -93,6 +100,7 @@ export function formatResult(result: BenchmarkResult): string {
     `fluid=${result.fluidSteps}  ` +
     `rpm=${result.rpm.toFixed(0).padStart(5)}  ` +
     `${result.millisecondsPerFrame.toFixed(2).padStart(6)} ms/frame  ` +
-    `${result.realtimeFactor.toFixed(2)}x realtime`
+    `${result.realtimeFactor.toFixed(2)}x realtime  ` +
+    `[${result.wasm ? 'wasm' : 'js'}]`
   );
 }

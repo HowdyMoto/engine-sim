@@ -11,7 +11,8 @@ npm install
 npm run dev        # development server
 npm run build      # production bundle into dist/
 npm test           # simulation test suite
-npm run benchmark  # headless performance probe
+npm run benchmark  # headless performance probe (JS vs WASM)
+npm run build:wasm # recompile the AssemblyScript gas kernels
 ```
 
 Audio needs a user gesture, so the page opens behind a **Start** button. After
@@ -27,6 +28,7 @@ that, press <kbd>A</kbd> for ignition and hold <kbd>S</kbd> to crank.
 | `src/audio/` | `synthesizer.cpp` and the `*_filter` files |
 | `src/builder/`, `src/engines/` | the `.mr` scripting language and `assets/engines` |
 | `src/ui/`, `src/main.ts` | `engine_sim_application.cpp` and the gauge clusters |
+| `src/wasm/`, `wasm/assembly/` | (new) WebAssembly kernels for the gas-system hot path |
 
 ## Architecture
 
@@ -145,19 +147,41 @@ there is a regression test for it.
 
 ## Performance
 
-Measured with `npm run benchmark` on a desktop (Node 24, full fidelity — nominal
-simulation rate, 8 fluid sub-steps):
+The gas-system hot path — pair flow, environment flow, velocity update,
+excess-velocity dissipation — also exists as AssemblyScript-compiled
+WebAssembly kernels (`wasm/assembly/index.ts`, ~11 KB, embedded as base64 so
+there is nothing extra to serve). Gas state lives in a `Float64Array` shared
+with wasm linear memory; `GasSystem.bindTo` points a system at a slot and the
+same code path serves both runtimes. The TypeScript implementations remain the
+reference: a lockstep test drives both through hundreds of states and holds
+them to 1e-9, and if instantiation fails the app silently keeps the JS path.
+The diagnostics row shows which one is live.
 
-| Engine | Rate | Cylinders | Realtime factor |
-| --- | --- | --- | --- |
-| GM LS V8 | 10 kHz | 8 | ~1.1x |
-| Subaru EJ25 | 20 kHz | 4 | ~1.1x |
-| Kohler CH750 | 30 kHz | 2 | ~1.2x |
+Measured with `npm run benchmark` on a desktop (Node 24, full fidelity —
+nominal simulation rate, 8 fluid sub-steps):
 
-That is enough on a desktop and marginal on slower hardware, which is what the
-adaptive quality control is for. The remaining cost is roughly 45% fluid
-simulation, 20% constraint solve, 35% everything else; moving the gas system and
-the solver to WebAssembly is the obvious next step if more headroom is wanted.
+| Engine | Rate | Cylinders | JS | WASM |
+| --- | --- | --- | --- | --- |
+| GM LS V8 | 10 kHz | 8 | 1.5x | 2.2x |
+| Ferrari 412 T2 | 5 kHz | 12 | 1.4x | 2.1x |
+| Toyota 2JZ | 10 kHz | 6 | 1.8x | 2.5x |
+| Honda B18C5 VTEC | 20 kHz | 4 | 1.0x | 1.4x |
+| Subaru EJ25 | 20 kHz | 4 | 1.2x | 1.9x |
+| Kohler CH750 | 30 kHz | 2 | 1.5x | 2.1x |
+| Radial 9 | 8 kHz | 9 | 1.6x | 2.2x |
+
+(realtime factors; the full sweep is `npm run benchmark`, one engine is
+`npm run benchmark <id> [fluidSteps] [js|wasm|both]`). The kernels take
+roughly 40% off the frame and put every engine in the roster above realtime
+at full fidelity; the adaptive quality control covers slower hardware from
+there.
+
+One lesson learned the hard way: the first version of the wasm module parked
+its state buffer at a fixed low address, which happened to sit on top of the
+lookup tables AssemblyScript's `Math.pow` reads from — gas-state writes
+corrupted `pow` for whichever inputs landed on the clobbered entries. State is
+allocated through the runtime heap now, and the lockstep test would catch any
+recurrence.
 
 ## Controls
 

@@ -150,4 +150,8 @@ export class Intake {
   getVelocityDecay(): number {
     return this.velocityDecay;
   }
+
+  getAtmosphere(): GasSystem {
+    return this.atmosphere;
+  }
 }

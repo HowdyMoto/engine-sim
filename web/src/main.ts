@@ -478,6 +478,7 @@ class App {
     const warp = state[S.SimulationSpeed];
     set('d-warp', warp >= 1 ? '1x' : `1/${Math.round(1 / warp)}x`);
     set('d-drops', `${(this.audio.starvedSamples / this.audio.sampleRate).toFixed(2)} s`);
+    set('d-wasm', state[S.WasmActive] > 0.5 ? 'WASM' : 'JS');
 
     const toggle = (id: string, active: boolean) => {
       const el = document.getElementById(id);

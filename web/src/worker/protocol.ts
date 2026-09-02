@@ -138,6 +138,7 @@ export const enum S {
   FilteredEngineSpeed,
   SimulationSpeed,
   RevLimiterActive,
+  WasmActive,
   HeaderSize,
 }
 

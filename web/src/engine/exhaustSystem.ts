@@ -140,4 +140,8 @@ export class ExhaustSystem {
   getSystem(): GasSystem {
     return this.system;
   }
+
+  getAtmosphere(): GasSystem {
+    return this.atmosphere;
+  }
 }
