@@ -42,7 +42,7 @@ let paused = false;
 let running = false;
 
 let audioBufferedSamples = 0;
-let impulseResponse: Int16Array | null = null;
+const impulseResponses = new Map<number, { samples: Int16Array; volume: number }>();
 let audioScratch = new Int16Array(8192);
 
 let autoQuality = true;
@@ -151,7 +151,7 @@ function load(engineId: string): void {
   };
 
   applyAudioParameters();
-  applyImpulseResponse();
+  applyImpulseResponses();
 
   info = describeEngine(engineId, engine);
   audioBufferedSamples = 0;
@@ -169,17 +169,13 @@ function load(engineId: string): void {
   }
 }
 
-function applyImpulseResponse(): void {
-  if (simulator === null || engine === null || impulseResponse === null) return;
+function applyImpulseResponses(): void {
+  if (simulator === null || engine === null) return;
 
   const synthesizer = simulator.getSynthesizer();
-  for (let i = 0; i < engine.getExhaustSystemCount(); ++i) {
-    const exhaust = engine.getExhaustSystem(i);
-    synthesizer.initializeImpulseResponse(
-      impulseResponse,
-      exhaust.getImpulseResponseVolume(),
-      i,
-    );
+  for (const [channel, response] of impulseResponses) {
+    if (channel >= engine.getExhaustSystemCount()) continue;
+    synthesizer.initializeImpulseResponse(response.samples, response.volume, channel);
   }
 }
 
@@ -437,8 +433,11 @@ self.onmessage = (event: MessageEvent<MainToWorker>) => {
         break;
 
       case 'impulseResponse':
-        impulseResponse = message.samples;
-        applyImpulseResponse();
+        impulseResponses.set(message.channel, {
+          samples: message.samples,
+          volume: message.volume,
+        });
+        applyImpulseResponses();
         break;
 
       case 'audioStatus':

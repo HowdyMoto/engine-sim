@@ -65,7 +65,7 @@ export interface IntakeSpec {
   plenumVolume: number;
   plenumCrossSectionArea: number;
   intakeFlowRate: number;
-  runnerFlowRate: number;
+  runnerFlowRate?: number;
   runnerLength?: number;
   idleFlowRate: number;
   idleThrottlePlatePosition?: number;

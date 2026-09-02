@@ -6,6 +6,7 @@ import { diskMomentOfInertia, rodMomentOfInertia } from '../core/utilities';
 import { GasSystem } from '../engine/gasSystem';
 import { flowFunction, harmonicCamLobe, makeFunction, timingCurve } from '../builder/functions';
 import { IgnitionWire, RodJournal } from '../builder/spec';
+import { connectWires } from './parts';
 import type {
   CylinderBankSpec,
   CylinderSpec,
@@ -114,7 +115,7 @@ export function gmLsSpec(): EngineSpec {
     primaryFlowRate: k_carb(500.0),
     velocityDecay: 1.0,
     audioVolume: 4.0,
-    impulseResponse: 'smooth_39',
+    impulseResponse: 'default_0',
     impulseResponseVolume: 0.001,
   };
 
@@ -275,13 +276,6 @@ export function gmLsSpec(): EngineSpec {
     banks: [bank0, bank1],
     ignitionModule,
   };
-}
-
-/** Mirrors `CylinderBankNode::addCylinder`, which wires each cylinder as it is added. */
-export function connectWires(bank: CylinderBankSpec): void {
-  for (let i = 0; i < bank.cylinders.length; ++i) {
-    bank.cylinders[i].ignitionWire.connect(bank, i);
-  }
 }
 
 export const gmLs: EngineDefinition = {

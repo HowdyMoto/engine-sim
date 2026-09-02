@@ -59,7 +59,17 @@ cylinder banks and heads are the same concepts with the same numbers, and
 translation; no compiler for the scripting language is needed.
 
 Bundled: **GM LS V8**, **Subaru EJ25** (flat four), **Kohler CH750** (governed
-90° V-twin).
+90° V-twin), **Radial 9** (articulated rods — one master rod on the crank
+journal, eight slaves on journals carried by the master's big end; it cranks
+slowly against 2.4 kg·m² of flywheel, so hold the starter).
+
+Shared parts from `es/part-library/` live in `src/engines/parts.ts`.
+
+The impulse response library names files under `assets/sound-library/new/` and
+`sharp/`, neither of which was ever committed upstream — only `smooth/` and
+`archive/` exist, so just one of its nine responses resolves.
+`src/audio/impulseResponses.ts` maps the missing names onto available `smooth/`
+responses of roughly the right character, and says so.
 
 ## Deliberate deviations
 

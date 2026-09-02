@@ -6,14 +6,12 @@ import * as units from './core/units';
 import { clamp } from './core/utilities';
 import { ENGINES, DEFAULT_ENGINE_ID } from './engines';
 import { EngineAudio, loadImpulseResponse } from './audio/engineAudio';
+import { resolveImpulseResponse } from './audio/impulseResponses';
 import { EngineRenderer, DEFAULT_THEME } from './ui/renderer';
 import { GaugeCluster } from './ui/gauges';
 import { InputController, type Modifier } from './ui/input';
 import { S, defaultControlState } from './worker/protocol';
 import type { ControlState, EngineInfo, MainToWorker, WorkerToMain } from './worker/protocol';
-
-/** Served from the public directory; the same response the original loads. */
-const IMPULSE_RESPONSE_URL = new URL('./ir/smooth_39.wav', document.baseURI).href;
 
 const QUALITY_PRESETS: Record<string, { frequencyScale: number; fluidSteps: number }> = {
   high: { frequencyScale: 1.0, fluidSteps: 8 },
@@ -47,7 +45,8 @@ class App {
   private bannerTimer = 0;
   private lastUpdate = performance.now();
 
-  private impulseResponse: Int16Array | null = null;
+  /** Decoded impulse responses, keyed by URL. */
+  private impulseResponses = new Map<string, Int16Array>();
 
   private readonly engineCanvas = element<HTMLCanvasElement>('engine-canvas');
   private readonly gaugeCanvas = element<HTMLCanvasElement>('gauge-canvas');
@@ -217,24 +216,36 @@ class App {
 
     await this.audio.start();
 
-    if (this.impulseResponse === null) {
-      try {
-        this.impulseResponse = await loadImpulseResponse(IMPULSE_RESPONSE_URL);
-      } catch {
-        // The engine still runs without reverb; just note it and carry on.
-        this.showBanner('Impulse response unavailable — running dry');
-      }
-    }
-
     const select = element<HTMLSelectElement>('engine-select');
     this.post({
       type: 'load',
       engineId: select.value,
       audioSampleRate: this.audio.sampleRate,
     });
+  }
 
-    if (this.impulseResponse !== null) {
-      this.post({ type: 'impulseResponse', samples: this.impulseResponse });
+  /**
+   * Load the impulse response each exhaust system asks for and hand it to the
+   * worker. Engines with separate collectors get separate responses.
+   */
+  private async sendImpulseResponses(info: EngineInfo): Promise<void> {
+    for (let channel = 0; channel < info.impulseResponses.length; ++channel) {
+      const { name, volume } = info.impulseResponses[channel];
+      const { url } = resolveImpulseResponse(name);
+
+      try {
+        let samples = this.impulseResponses.get(url);
+        if (samples === undefined) {
+          samples = await loadImpulseResponse(url);
+          this.impulseResponses.set(url, samples);
+        }
+
+        this.post({ type: 'impulseResponse', channel, samples, volume });
+      } catch {
+        // The engine still runs without reverb; say so and carry on.
+        this.showBanner('Impulse response unavailable — running dry');
+        return;
+      }
     }
   }
 
@@ -258,9 +269,7 @@ class App {
         };
         this.dynoSpeedRpm = units.toRpm(message.info.dynoMinSpeed);
 
-        if (this.impulseResponse !== null) {
-          this.post({ type: 'impulseResponse', samples: this.impulseResponse });
-        }
+        void this.sendImpulseResponses(message.info);
         break;
       }
 

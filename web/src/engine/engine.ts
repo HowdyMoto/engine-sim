@@ -158,7 +158,7 @@ export class Engine {
     const min_s = new Float64Array(n).fill(Number.MAX_VALUE);
     const max_s = new Float64Array(n).fill(-Number.MAX_VALUE);
 
-    const scratch = { p_x: 0, p_y: 0, s: 0 };
+    const scratch = { p_x: 0, p_y: 0, theta: 0, s: 0 };
 
     for (let j = 0; j < RESOLUTION; ++j) {
       const crankshaftAngle = 2 * (j / RESOLUTION) * PI;
@@ -381,12 +381,20 @@ export class Engine {
 interface RodPlacement {
   p_x: number;
   p_y: number;
+  theta: number;
   s: number;
 }
 
 /**
  * Solve for where a rod's little end sits on the bank axis at a given crank
- * angle. Recurses through master rods for articulated (radial/V-twin) layouts.
+ * angle. Recurses through master rods for articulated (radial) layouts.
+ *
+ * Ported from the free `placeRod` function in `src/engine.cpp`, including two
+ * quirks that matter for matching the original's displacement figure: the
+ * journal is looked up by the piston's index within its bank rather than by the
+ * rod's journal index, and the returned angle is `acos` of an unnormalised
+ * offset. This result only feeds the displacement approximation - the physical
+ * placement in `PistonEngineSimulator` does its own, correct, solve.
  */
 function placeRod(
   rod: ConnectingRod,
@@ -399,20 +407,24 @@ function placeRod(
   let theta_0: number;
   const local = { x: 0, y: 0 };
 
+  const piston = rod.getPiston();
+  if (piston === null) return false;
+  const journalIndex = piston.getCylinderIndex();
+
   const master = rod.getMasterRod();
   if (master !== null) {
     const masterPiston = master.getPiston();
     if (masterPiston === null) return false;
 
-    const nested: RodPlacement = { p_x: 0, p_y: 0, s: 0 };
+    const nested: RodPlacement = { p_x: 0, p_y: 0, theta: 0, s: 0 };
     if (!placeRod(master, masterPiston.getCylinderBank(), crankshaftAngle, nested)) {
       return false;
     }
 
     p_x_0 = nested.p_x;
     p_y_0 = nested.p_y;
-    theta_0 = crankshaftAngle;
-    master.getRodJournalPositionLocal(rod.getJournal(), local);
+    theta_0 = nested.theta;
+    master.getRodJournalPositionLocal(journalIndex, local);
   } else {
     const crankshaft = rod.getCrankshaft();
     if (crankshaft === null) return false;
@@ -420,7 +432,7 @@ function placeRod(
     theta_0 = crankshaftAngle;
     p_x_0 = crankshaft.getPosX();
     p_y_0 = crankshaft.getPosY();
-    crankshaft.getRodJournalPositionLocal(rod.getJournal(), local);
+    crankshaft.getRodJournalPositionLocal(journalIndex, local);
   }
 
   const dx = Math.cos(theta_0);
@@ -444,5 +456,11 @@ function placeRod(
   const s1 = (-b - sqrt_det) / (2 * a);
 
   out.s = Math.max(s0, s1);
-  return out.s >= 0;
+  if (out.s < 0) return false;
+
+  const toPin_x = bank.getX() + bank.getDx() * out.s - out.p_x;
+  const toPin_y = bank.getY() + bank.getDy() * out.s - out.p_y;
+  out.theta = toPin_y > 0 ? Math.acos(toPin_x) : -Math.acos(toPin_x);
+
+  return true;
 }

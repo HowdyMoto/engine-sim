@@ -9,8 +9,10 @@
  */
 import * as units from '../core/units';
 import { makeFunction } from './functions';
+import { GasSystem } from '../engine/gasSystem';
 import type { Func } from '../core/function';
 import type { FuelParameters } from '../engine/fuel';
+import type { IntakeSpec } from './spec';
 
 let cachedTurbulenceCurve: Func | null = null;
 
@@ -51,6 +53,29 @@ export function resolveFuelParameters(params: FuelParameters | undefined): FuelP
     turbulenceToFlameSpeedRatio:
       params?.turbulenceToFlameSpeedRatio ?? defaultTurbulenceToFlameSpeedRatio(),
   };
+}
+
+/**
+ * `intake_parameters` node defaults. Note `velocity_decay`, which the script
+ * library sets to 0.25 against the C++ class default of 0.5.
+ */
+export function resolveIntakeParameters(spec: IntakeSpec): Required<IntakeSpec> {
+  return {
+    molecularAfr: 25.0 / 2.0,
+    idleThrottlePlatePosition: 0.975,
+    runnerLength: units.distance(4.0, units.inch),
+    runnerFlowRate: GasSystem.k_carb(200.0),
+    velocityDecay: 0.25,
+    ...stripUndefined(spec),
+  } as Required<IntakeSpec>;
+}
+
+function stripUndefined<T extends object>(value: T): Partial<T> {
+  const out: Partial<T> = {};
+  for (const [key, v] of Object.entries(value)) {
+    if (v !== undefined) (out as Record<string, unknown>)[key] = v;
+  }
+  return out;
 }
 
 /** `engine()` node defaults for the dynamometer range. */

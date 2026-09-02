@@ -15,7 +15,7 @@ import { CombustionChamber } from '../engine/combustionChamber';
 import { Camshaft } from '../engine/camshaft';
 import { StandardValvetrain, VtecValvetrain, type Valvetrain } from '../engine/valvetrain';
 import { DirectThrottleLinkage, Governor, type Throttle } from '../engine/throttle';
-import { resolveDynoRange, resolveFuelParameters } from './defaults';
+import { resolveDynoRange, resolveFuelParameters, resolveIntakeParameters } from './defaults';
 import type {
   CamshaftSpec,
   ConnectingRodSpec,
@@ -83,7 +83,7 @@ export function buildEngine(spec: EngineSpec): Engine {
   }
 
   for (let i = 0; i < intakeSpecs.length; ++i) {
-    const s = intakeSpecs[i];
+    const s = resolveIntakeParameters(intakeSpecs[i]);
     engine.getIntake(i).initialize({
       volume: s.plenumVolume,
       crossSectionArea: s.plenumCrossSectionArea,

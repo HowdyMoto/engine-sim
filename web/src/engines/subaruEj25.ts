@@ -7,7 +7,7 @@ import { diskMomentOfInertia, rodMomentOfInertia } from '../core/utilities';
 import { GasSystem } from '../engine/gasSystem';
 import { flowFunction, harmonicCamLobe, makeFunction, timingCurve } from '../builder/functions';
 import { IgnitionWire, RodJournal } from '../builder/spec';
-import { connectWires } from './gmLs';
+import { connectWires } from './parts';
 import type {
   CylinderBankSpec,
   EngineDefinition,
@@ -117,8 +117,8 @@ export function subaruEj25Spec(): EngineSpec {
     velocityDecay: 1.0,
     length: units.distance(500, units.mm),
     audioVolume: 0.5 * 0.02,
-    impulseResponse: 'smooth_39',
-    impulseResponseVolume: 0.001,
+    impulseResponse: 'minimal_muffling_02',
+    impulseResponseVolume: 0.01,
   };
 
   const cylinder = (

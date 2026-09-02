@@ -7,9 +7,9 @@
 import { PI } from '../core/constants';
 import * as units from '../core/units';
 import { GasSystem, circleArea } from '../engine/gasSystem';
-import { flowFunction, harmonicCamLobe, timingCurve } from '../builder/functions';
+import { harmonicCamLobe, timingCurve } from '../builder/functions';
 import { IgnitionWire, RodJournal } from '../builder/spec';
-import { connectWires } from './gmLs';
+import { bankCamshafts, connectWires, genericSmallEngineHead } from './parts';
 import type {
   CylinderBankSpec,
   EngineDefinition,
@@ -20,42 +20,6 @@ import type {
 const { k_carb, k_28inH2O } = GasSystem;
 
 const CYCLE = units.angle(2 * 360, units.deg);
-
-const SMALL_ENGINE_INTAKE_FLOW: [number, number][] = [
-  [0, 0],
-  [50, 25],
-  [100, 75],
-  [150, 100],
-  [200, 130],
-  [250, 180],
-  [300, 190],
-  [350, 220],
-  [400, 240],
-  [450, 250],
-  [500, 260],
-  [550, 260],
-  [600, 260],
-  [650, 255],
-  [700, 250],
-];
-
-const SMALL_ENGINE_EXHAUST_FLOW: [number, number][] = [
-  [0, 0],
-  [50, 25],
-  [100, 50],
-  [150, 75],
-  [200, 100],
-  [250, 125],
-  [300, 160],
-  [350, 175],
-  [400, 180],
-  [450, 190],
-  [500, 200],
-  [550, 205],
-  [600, 210],
-  [650, 210],
-  [700, 210],
-];
 
 export function kohlerCh750Spec(): EngineSpec {
   const wires = [new IgnitionWire(), new IgnitionWire()];
@@ -101,7 +65,7 @@ export function kohlerCh750Spec(): EngineSpec {
     collectorCrossSectionArea,
     length: units.volume(20.0, units.L) / collectorCrossSectionArea,
     audioVolume: 1.0,
-    impulseResponse: 'smooth_39',
+    impulseResponse: 'default_0',
     impulseResponseVolume: 0.001,
   };
 
@@ -114,33 +78,15 @@ export function kohlerCh750Spec(): EngineSpec {
 
   const lobeSeparation = units.angle(114, units.deg);
   const baseRadius = units.distance(500, units.thou);
-  const rot360 = units.angle(360, units.deg);
   // The two cylinders are 3 * 90 crank degrees apart on the cam.
   const bankOffset = units.angle(90 * 3, units.deg);
 
-  const head = (offset: number, flipDisplay: boolean) => ({
-    chamberVolume: units.volume(50, units.cc),
-    intakeRunnerVolume: units.volume(100.0, units.cc),
-    intakeRunnerCrossSectionArea: units.area(30.0, units.cm2),
-    exhaustRunnerVolume: units.volume(100.0, units.cc),
-    exhaustRunnerCrossSectionArea: units.area(30.0, units.cm2),
-    intakePortFlow: flowFunction(SMALL_ENGINE_INTAKE_FLOW),
-    exhaustPortFlow: flowFunction(SMALL_ENGINE_EXHAUST_FLOW),
-    valvetrain: {
-      kind: 'standard' as const,
-      intakeCamshaft: {
-        lobeProfile: lobe,
-        baseRadius,
-        lobes: [rot360 + lobeSeparation + offset],
-      },
-      exhaustCamshaft: {
-        lobeProfile: lobe,
-        baseRadius,
-        lobes: [rot360 - lobeSeparation + offset],
-      },
-    },
-    flipDisplay,
-  });
+  const head = (offset: number, flipDisplay: boolean) =>
+    genericSmallEngineHead({
+      chamberVolume: units.volume(50, units.cc),
+      flipDisplay,
+      ...bankCamshafts({ lobeProfile: lobe, lobeSeparation, baseRadius }, [offset]),
+    });
 
   const bankParams = {
     bore: units.distance(83, units.mm),

@@ -8,7 +8,7 @@ import { Vehicle } from '../engine/vehicle';
 import { Transmission } from '../engine/transmission';
 import { buildEngine } from '../builder/buildEngine';
 import { PistonEngineSimulator } from './pistonEngineSimulator';
-import { gmLs, subaruEj25, kohlerCh750 } from '../engines';
+import { ENGINES, gmLs, subaruEj25, kohlerCh750, radial9 } from '../engines';
 import type { EngineDefinition } from '../builder/spec';
 
 // Combustion efficiency is randomised per ignition event; pin it so runs are
@@ -184,7 +184,7 @@ describe('piston engine simulation', () => {
   }, 120_000);
 
   it('builds every bundled engine without error', () => {
-    for (const definition of [gmLs, subaruEj25, kohlerCh750]) {
+    for (const definition of ENGINES) {
       const { engine } = makeSimulator(definition);
       expect(engine.getCylinderCount()).toBeGreaterThan(0);
       expect(Number.isFinite(engine.getDisplacement())).toBe(true);
@@ -209,6 +209,56 @@ describe('piston engine simulation', () => {
     expect(engine.getRpm()).toBeGreaterThan(900);
     expect(engine.getRpm()).toBeLessThan(2600);
   }, 180_000);
+});
+
+describe('articulated rods', () => {
+  it('links every slave rod on the radial to the master rod', () => {
+    const engine = buildEngine(radial9.engine());
+
+    let masters = 0;
+    let slaves = 0;
+    for (let i = 0; i < engine.getCylinderCount(); ++i) {
+      const rod = engine.getConnectingRod(i);
+      if (rod.getMasterRod() === null) {
+        ++masters;
+        // The master rod runs on the crank and carries the slave journals.
+        expect(rod.getCrankshaft()).not.toBeNull();
+        expect(rod.getRodJournalCount()).toBe(engine.getCylinderCount());
+      } else {
+        ++slaves;
+        // A slave inherits its crankshaft from the master it hangs off.
+        expect(rod.getCrankshaft()).toBe(rod.getMasterRod()!.getCrankshaft());
+        expect(rod.getMasterRod()!.getMasterRod()).toBeNull();
+      }
+    }
+
+    expect(masters).toBe(1);
+    expect(slaves).toBe(engine.getCylinderCount() - 1);
+  });
+
+  it('starts the radial and keeps it running', () => {
+    const { engine, simulator } = makeSimulator(radial9);
+
+    engine.setSpeedControl(1.0);
+    engine.getIgnitionModule().enabled = true;
+
+    // 2.4 kg m^2 of flywheel against an 80 lb-ft starter: it cranks slowly.
+    simulator.starterMotor.enabled = true;
+    run(simulator, 3.0);
+
+    simulator.starterMotor.enabled = false;
+    run(simulator, 1.5);
+
+    expect(engine.getRpm()).toBeGreaterThan(400);
+  }, 180_000);
+
+  it('sweeps a plausible displacement through the articulated geometry', () => {
+    const litres = buildEngine(radial9.engine()).getDisplacement() / units.L;
+
+    // 5 in bore x 5.5 in stroke x 9, give or take the articulation.
+    expect(litres).toBeGreaterThan(12);
+    expect(litres).toBeLessThan(20);
+  });
 });
 
 describe('script library defaults', () => {
