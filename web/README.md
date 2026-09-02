@@ -146,6 +146,42 @@ burning velocity. It fires but cannot sustain itself. `builder/defaults.ts`
 applies the script library's defaults, which is the layer they belong to, and
 there is a regression test for it.
 
+## Custom engines
+
+The original's main workflow is editing `main.mr` to build your own engine;
+the web equivalent is the **Custom (JSON)** entry in the engine picker. It
+opens an editor with a JSON description - layout, geometry, firing order,
+cams, port flow, exhaust character - compiled by `src/builder/customEngine.ts`
+into the same `EngineSpec` the roster engines use. Everything not specified
+gets a sensible default, and the description persists in localStorage.
+
+Crank phasing is derived, not requested: a cylinder at position `k` of the
+firing order fires at `k x 720/N` degrees, which fixes its journal angle -
+the rule every roster crank follows (the LS crossplane and the EJ25 boxer
+fall out of it exactly). For V engines the paired cylinder's timing comes
+from the shared journal's geometry, so a firing order the bank angle cannot
+produce yields exactly the odd-fire engine that crank would really be.
+
+```json
+{
+  "name": "My Inline Four",
+  "layout": "inline",
+  "cylinders": 4,
+  "boreMm": 86, "strokeMm": 86, "rodLengthMm": 150,
+  "compressionRatio": 10.5,
+  "firingOrder": [1, 3, 4, 2],
+  "redlineRpm": 7200,
+  "cam": { "durationDeg": 215, "liftMm": 10.5, "lobeSeparationDeg": 112 },
+  "intake": { "flowCfm": 400 },
+  "exhaust": { "outletFlowCfm": 450, "systemLengthMm": 1800 }
+}
+```
+
+`layout` is `inline`, `v` (with `vAngleDeg`) or `flat`; `ports` selects
+`modern4v`, `smallEngine` or explicit `[liftThou, cfm]` tables; `masses`,
+`starter`, `vehicle`, `transmission` and `timingCurve` are all overridable.
+See `CustomEngineJson` in `src/builder/customEngine.ts` for every field.
+
 ## Performance
 
 The gas-system hot path — pair flow, environment flow, velocity update,

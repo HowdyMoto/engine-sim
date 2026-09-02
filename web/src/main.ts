@@ -9,6 +9,7 @@ import { EngineAudio, loadImpulseResponse } from './audio/engineAudio';
 import { resolveImpulseResponse } from './audio/impulseResponses';
 import { EngineRenderer, DEFAULT_THEME } from './ui/renderer';
 import { THEMES, getTheme, buildTheme, applyCssTheme } from './ui/themes';
+import { compileCustomEngine, customEngineTemplate } from './builder/customEngine';
 import { GaugeCluster } from './ui/gauges';
 import { ScopeCluster } from './ui/scopes';
 import { InputController, type Modifier } from './ui/input';
@@ -157,8 +158,18 @@ class App {
       option.textContent = definition.label;
       engineSelect.append(option);
     }
+    const customOption = document.createElement('option');
+    customOption.value = 'custom';
+    customOption.textContent = 'Custom (JSON)…';
+    engineSelect.append(customOption);
+
     engineSelect.value = DEFAULT_ENGINE_ID;
     engineSelect.addEventListener('change', () => {
+      if (engineSelect.value === 'custom') {
+        this.openCustomEditor();
+        return;
+      }
+      element('edit-custom').hidden = true;
       this.audio.reset();
       this.post({
         type: 'load',
@@ -166,6 +177,8 @@ class App {
         audioSampleRate: this.audio.sampleRate,
       });
     });
+
+    this.bindCustomEditor();
 
     const qualitySelect = element<HTMLSelectElement>('quality-select');
     qualitySelect.addEventListener('change', () => {
@@ -590,6 +603,88 @@ class App {
 
     requestAnimationFrame(this.loop);
   };
+
+  private openCustomEditor(): void {
+    const dialog = element<HTMLDialogElement>('custom-dialog');
+    const textarea = element<HTMLTextAreaElement>('custom-json');
+
+    if (textarea.value.trim() === '') {
+      let saved: string | null = null;
+      try {
+        saved = localStorage.getItem('engine-sim-custom');
+      } catch {
+        /* storage unavailable */
+      }
+      textarea.value = saved ?? JSON.stringify(customEngineTemplate(), null, 2);
+    }
+
+    element('custom-error').hidden = true;
+    dialog.showModal();
+  }
+
+  private customApplied = false;
+
+  private bindCustomEditor(): void {
+    const dialog = element<HTMLDialogElement>('custom-dialog');
+    const textarea = element<HTMLTextAreaElement>('custom-json');
+    const errorBox = element('custom-error');
+    const engineSelect = element<HTMLSelectElement>('engine-select');
+
+    element('edit-custom').addEventListener('click', () => this.openCustomEditor());
+
+    element('custom-template').addEventListener('click', () => {
+      textarea.value = JSON.stringify(customEngineTemplate(), null, 2);
+      errorBox.hidden = true;
+    });
+
+    element('custom-apply').addEventListener('click', () => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(textarea.value);
+      } catch (error) {
+        errorBox.textContent = `Not valid JSON: ${(error as Error).message}`;
+        errorBox.hidden = false;
+        return;
+      }
+
+      // Compile here too so mistakes surface in the dialog, not the banner.
+      try {
+        compileCustomEngine(parsed as Parameters<typeof compileCustomEngine>[0]);
+      } catch (error) {
+        errorBox.textContent = (error as Error).message;
+        errorBox.hidden = false;
+        return;
+      }
+
+      try {
+        localStorage.setItem('engine-sim-custom', textarea.value);
+      } catch {
+        /* storage unavailable */
+      }
+
+      this.customApplied = true;
+      dialog.close();
+      element('edit-custom').hidden = false;
+      this.audio.reset();
+      this.post({
+        type: 'load',
+        engineId: 'custom',
+        customJson: textarea.value,
+        audioSampleRate: this.audio.sampleRate,
+      });
+    });
+
+    dialog.addEventListener('close', () => {
+      // Cancelled without applying: fall back to the loaded engine.
+      if (this.customApplied) {
+        this.customApplied = false;
+        return;
+      }
+      if (engineSelect.value === 'custom' && this.info?.id !== 'custom') {
+        engineSelect.value = this.info?.id ?? DEFAULT_ENGINE_ID;
+      }
+    });
+  }
 
   private updateReadouts(state: Float32Array): void {
     const set = (id: string, text: string) => {

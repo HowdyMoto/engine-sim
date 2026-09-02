@@ -10,6 +10,8 @@ import { Transmission } from '../engine/transmission';
 import { buildEngine } from '../builder/buildEngine';
 import { PistonEngineSimulator } from '../sim/pistonEngineSimulator';
 import { getEngineDefinition } from '../engines';
+import { compileCustomEngine } from '../builder/customEngine';
+import type { EngineDefinition } from '../builder/spec';
 import {
   C,
   S,
@@ -98,8 +100,8 @@ function post(message: WorkerToMain, transfer: Transferable[] = []): void {
   (self as unknown as Worker).postMessage(message, transfer);
 }
 
-function describeEngine(id: string, built: Engine): EngineInfo {
-  const definition = getEngineDefinition(id);
+function describeEngine(definition: EngineDefinition, built: Engine): EngineInfo {
+  const id = definition.id;
 
   const banks = [];
   for (let i = 0; i < built.getCylinderBankCount(); ++i) {
@@ -165,8 +167,11 @@ function describeEngine(id: string, built: Engine): EngineInfo {
   };
 }
 
-function load(engineId: string): void {
-  const definition = getEngineDefinition(engineId);
+function load(engineId: string, customJson?: string): void {
+  const definition =
+    engineId === 'custom' && customJson !== undefined
+      ? compileCustomEngine(JSON.parse(customJson))
+      : getEngineDefinition(engineId);
 
   engine = buildEngine(definition.engine());
 
@@ -199,7 +204,7 @@ function load(engineId: string): void {
   applyAudioParameters();
   applyImpulseResponses();
 
-  info = describeEngine(engineId, engine);
+  info = describeEngine(definition, engine);
   audioBufferedSamples = 0;
   frameLoadAverage = 0;
   // Ignore the first second: the JIT is still warming up and would otherwise
@@ -488,7 +493,11 @@ self.onmessage = (event: MessageEvent<MainToWorker>) => {
     switch (message.type) {
       case 'load':
         audioSampleRate = message.audioSampleRate;
-        load(message.engineId);
+        try {
+          load(message.engineId, message.customJson);
+        } catch (error) {
+          post({ type: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
         break;
 
       case 'control':

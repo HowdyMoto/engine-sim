@@ -35,6 +35,8 @@
             </select>
           </label>
 
+          <button id="edit-custom" class="small" hidden title="Edit the custom engine JSON">Edit</button>
+
           <label class="field">
             <span>Theme</span>
             <select id="theme-select"></select>
@@ -141,6 +143,25 @@
         <button id="help-close" class="primary" type="button">Close</button>
       </div>
     </div>
+
+    <dialog id="custom-dialog">
+      <form method="dialog" class="custom-editor">
+        <h2>Custom engine</h2>
+        <p class="hint">
+          Describe an engine as JSON — layout, geometry, firing order, cams, flow.
+          Crank phasing is derived from the firing order. Unset fields get sensible
+          defaults.
+        </p>
+        <textarea id="custom-json" spellcheck="false" rows="22"></textarea>
+        <div id="custom-error" class="error" hidden></div>
+        <div class="row">
+          <button value="template" id="custom-template" type="button">Load template</button>
+          <span class="spacer"></span>
+          <button value="cancel">Cancel</button>
+          <button value="apply" id="custom-apply" type="button" class="primary">Build &amp; run</button>
+        </div>
+      </form>
+    </dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

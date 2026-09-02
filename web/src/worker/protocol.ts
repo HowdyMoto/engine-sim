@@ -95,7 +95,7 @@ export function defaultControlState(): ControlState {
 }
 
 export type MainToWorker =
-  | { type: 'load'; engineId: string; audioSampleRate: number }
+  | { type: 'load'; engineId: string; audioSampleRate: number; customJson?: string }
   | { type: 'control'; control: Partial<ControlState> }
   | { type: 'impulseResponse'; channel: number; samples: Int16Array; volume: number }
   | { type: 'audioStatus'; bufferedSamples: number; starvedSamples: number }
