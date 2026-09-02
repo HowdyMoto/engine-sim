@@ -8,7 +8,7 @@
  */
 import { PI } from '../core/constants';
 import * as units from '../core/units';
-import { C, S, crankshaftOffset, cylinderOffset } from '../worker/protocol';
+import { C, S, crankshaftOffset, cylinderOffset, frameStateSize } from '../worker/protocol';
 import type { EngineInfo } from '../worker/protocol';
 
 export interface Theme {
@@ -219,6 +219,8 @@ export class EngineRenderer {
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     if (info === null) return;
+    // A frame from a different engine (mid-switch) would index out of range.
+    if (state.length < frameStateSize(info.cylinderCount, info.crankshaftCount)) return;
 
     this.updateTransform();
 

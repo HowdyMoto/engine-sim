@@ -342,6 +342,9 @@ class App {
     switch (message.type) {
       case 'loaded': {
         this.info = message.info;
+        // The last frame belongs to the previous engine; drop it so nothing
+        // renders a mismatched buffer before the first new frame arrives.
+        this.latestState = null;
         this.renderer.setEngine(message.info);
         this.gauges.setEngine(message.info);
         this.scopes.setEngine(message.info);
