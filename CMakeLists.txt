@@ -1,22 +1,28 @@
 cmake_minimum_required(VERSION 3.10)
 
-# This fork drops the delta-studio submodule, which was 1.4 GB of prebuilt
-# binaries and an unrelated demo app - over 90% of the repository - and which
-# the TypeScript port in web/ does not use. The C++ simulation sources remain
-# as the reference implementation for that port, but the C++ application
-# renders through delta-studio and cannot be built without it.
+# This fork drops two submodules that together were 1.63 GB of a 1.5 GB
+# repository - almost entirely prebuilt binaries, an unrelated demo app, and
+# 3D models committed to a compiler's history - and that the TypeScript port
+# in web/ does not use:
 #
-# To build the C++ app, restore the submodule:
+#   delta-studio   the DirectX renderer the C++ application draws through
+#   piranha        the compiler for the .mr scripting language
+#
+# The C++ simulation sources remain as the reference implementation for that
+# port, but the C++ application needs both to build. To restore them:
 #
 #   git submodule add https://github.com/ange-yaghi/delta-studio #       dependencies/submodules/delta-studio
+#   git submodule add https://github.com/ange-yaghi/piranha.git #       dependencies/submodules/piranha
 #
 # then revert this file and dependencies/submodules/CMakeLists.txt.
-if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/submodules/delta-studio/CMakeLists.txt")
-    message(FATAL_ERROR
-        "delta-studio is not present. This fork removed it to keep the "
-        "repository small; the browser port in web/ does not need it. See the "
-        "comment at the top of this file to restore it.")
-endif()
+foreach(_removed delta-studio piranha)
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/submodules/${_removed}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "${_removed} is not present. This fork removed it to keep the "
+            "repository small; the browser port in web/ does not need it. See "
+            "the comment at the top of this file to restore it.")
+    endif()
+endforeach()
 
 option(DTV "Enable video output" OFF)
 option(PIRANHA_ENABLED "Enable scripting input" ON)

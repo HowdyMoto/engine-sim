@@ -16,14 +16,16 @@ on a Web Worker and sound through an AudioWorklet. See [web/README.md](web/READM
 cd web && npm install && npm run dev
 ```
 
-This fork also drops the `delta-studio` submodule. It was 1.4 GB — prebuilt
-binaries and an unrelated demo app, over 90% of the repository — and the browser
-port does not use it. The C++ simulation sources are all still here and serve as
-the reference for the port, but the C++ *application* renders through
-delta-studio and needs it restored to build:
+This fork also drops two submodules that together were 1.63 GB of a 1.5 GB
+repository: `delta-studio` (the DirectX renderer, 1.4 GB of prebuilt binaries
+and an unrelated demo app) and `piranha` (the `.mr` compiler, 253 MB of 3D
+models in its history). Neither is used by the browser port. The C++ simulation
+sources are all still here and serve as the reference for the port, but the C++
+*application* needs both restored to build:
 
 ```
 git submodule add https://github.com/ange-yaghi/delta-studio dependencies/submodules/delta-studio
+git submodule add https://github.com/ange-yaghi/piranha.git dependencies/submodules/piranha
 ```
 
 

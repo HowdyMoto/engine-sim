@@ -19,8 +19,5 @@ if (DTV)
     set_property(TARGET direct-to-video PROPERTY FOLDER "dtv")
 endif (DTV)
 
-add_subdirectory(piranha)
-
-set_property(TARGET piranha PROPERTY FOLDER "piranha")
-set_property(TARGET piranha_test PROPERTY FOLDER "piranha")
-set_property(TARGET piranha_reference_compiler PROPERTY FOLDER "piranha")
+# piranha (the .mr scripting language compiler) is not vendored in this fork;
+# see the note in the root CMakeLists.txt.
