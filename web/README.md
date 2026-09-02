@@ -135,7 +135,7 @@ commented at the site.
    That randomness now goes through `core/random.ts` so tests can seed it; the
    default is `Math.random`, as before.
 
-## A bug found along the way
+## Bugs found along the way
 
 The C++ `Fuel` class defaults its turbulence-to-flame-speed curve to null, and
 `max_dilution_effect` to 50. Every engine is actually built through the script
@@ -145,6 +145,16 @@ uses the default, and with a null curve its flame speed collapses to the laminar
 burning velocity. It fires but cannot sustain itself. `builder/defaults.ts`
 applies the script library's defaults, which is the layer they belong to, and
 there is a regression test for it.
+
+A second one surfaced while choosing impulse-response substitutes (the
+repository only ships `smooth/` and `archive/`; the names the script library
+uses were never committed): `smooth_05`, the file standing in for the "mild
+exhaust" responses, spends its first ~10000 samples nearly silent - and the
+synthesizer, faithfully to the C++, truncates responses at 10000 taps. Every
+engine mapped to it was convolving against near-silence. The registry now
+maps each missing name to a distinct front-loaded response chosen by measured
+decay and brightness, gain-normalized inside the tap window
+(`src/audio/impulseResponses.ts`).
 
 ## Custom engines
 

@@ -320,7 +320,7 @@ class App {
   private async sendImpulseResponses(info: EngineInfo): Promise<void> {
     for (let channel = 0; channel < info.impulseResponses.length; ++channel) {
       const { name, volume } = info.impulseResponses[channel];
-      const { url } = resolveImpulseResponse(name);
+      const { url, gain } = resolveImpulseResponse(name);
 
       try {
         let samples = this.impulseResponses.get(url);
@@ -329,7 +329,7 @@ class App {
           this.impulseResponses.set(url, samples);
         }
 
-        this.post({ type: 'impulseResponse', channel, samples, volume });
+        this.post({ type: 'impulseResponse', channel, samples, volume: volume * gain });
       } catch {
         // The engine still runs without reverb; say so and carry on.
         this.showBanner('Impulse response unavailable — running dry');
