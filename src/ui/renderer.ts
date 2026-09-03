@@ -34,22 +34,28 @@ export interface Theme {
   fgDim: string;
 }
 
+/**
+ * The application's single theme. Values track the CSS custom properties in
+ * `style.css` so the canvas and the page chrome read as one surface; the metal
+ * tones are lifted enough for rods, webs and pistons to separate from the
+ * background rather than merging into it.
+ */
 export const DEFAULT_THEME: Theme = {
-  background: '#0b0d10',
-  shadow: '#14181d',
-  foreground: '#e7ecf2',
-  metal: '#39424d',
-  metalDark: '#232a32',
-  metalLight: '#5b6875',
-  accent: '#f0a53c',
-  hot: '#ff6b3d',
-  cold: '#3d7dff',
-  outline: '#0b0d10',
-  head: '#c2809d',
-  intake: '#77cee0',
-  exhaust: '#fdbd2e',
+  background: '#0d1014',
+  shadow: '#171c22',
+  foreground: '#f4f7fa',
+  metal: '#454f5c',
+  metalDark: '#2b333d',
+  metalLight: '#74828f',
+  accent: '#ffb43c',
+  hot: '#ff7a4d',
+  cold: '#5a92ff',
+  outline: '#080a0d',
+  head: '#c98aa6',
+  intake: '#7fd6e8',
+  exhaust: '#ffc94a',
   flame: 0xf4802a,
-  fgDim: 'rgba(231, 236, 242, 0.5)',
+  fgDim: '#b6c1cd',
 };
 
 interface CylinderDraw {

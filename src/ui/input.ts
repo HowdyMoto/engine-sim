@@ -17,6 +17,8 @@ export interface InputEvents {
   onToggleHold(): void;
   onGearUp(): void;
   onGearDown(): void;
+  onEnginePrev(): void;
+  onEngineNext(): void;
   onLayerUp(): void;
   onLayerDown(): void;
   onTimeWarp(factor: number): void;
@@ -174,6 +176,12 @@ export class InputController {
       case 'gearDown':
         this.events.onGearDown();
         event.preventDefault();
+        return;
+      case 'enginePrev':
+        this.events.onEnginePrev();
+        return;
+      case 'engineNext':
+        this.events.onEngineNext();
         return;
       case 'layerUp':
         this.events.onLayerUp();

@@ -1,17 +1,28 @@
 :root {
   color-scheme: dark;
 
-  --bg: #0b0d10;
-  --panel: #111519;
-  --panel-2: #161b21;
-  --line: #232a32;
-  --fg: #e7ecf2;
-  --fg-dim: rgba(231, 236, 242, 0.55);
-  --accent: #f0a53c;
-  --hot: #ff6b3d;
-  --ok: #4ac97e;
-  --panel-overlay: rgba(11, 13, 16, 0.72);
-  --on-accent: #16130c;
+  /*
+   * Surfaces step in clear increments so panels, controls and the canvas
+   * separate without borders having to do the work. Dim text is a solid
+   * colour rather than a low alpha, which is what made small labels wash
+   * out over the darker areas.
+   */
+  --bg: #0d1014;
+  --panel: #1b212a;
+  --panel-2: #262e39;
+  --panel-3: #323c4a;
+  --line: #46525f;
+  --line-strong: #61707f;
+
+  --fg: #f4f7fa;
+  --fg-dim: #b6c1cd;
+
+  --accent: #ffb43c;
+  --accent-soft: rgba(255, 180, 60, 0.16);
+  --hot: #ff7a4d;
+  --ok: #56d98a;
+  --panel-overlay: rgba(19, 24, 31, 0.92);
+  --on-accent: #17120a;
 }
 
 * {
@@ -119,7 +130,16 @@ button {
 }
 
 button:hover {
-  background: var(--panel-2);
+  background: var(--panel-3);
+  border-color: var(--line-strong);
+}
+
+button:focus-visible,
+.power-button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 button.primary {
@@ -137,6 +157,44 @@ button.primary:hover {
 
 button.ghost {
   background: transparent;
+}
+
+/*
+ * An anchor, not a button, so it gets none of the button element rules above
+ * and has to state the whole look itself.
+ */
+.icon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.icon-link:hover {
+  background: var(--panel-3);
+  border-color: var(--line-strong);
+}
+
+.icon-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.gh-glyph {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: currentColor;
 }
 
 /* ---- Stage ---- */
@@ -161,9 +219,9 @@ button.ghost {
   gap: 4px;
   padding: 12px 14px;
   background: var(--panel-overlay);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 10px;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
   font-size: 12px;
   min-width: 190px;
 }
@@ -191,8 +249,8 @@ button.ghost {
   transform: translateX(-50%);
   padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(11, 13, 16, 0.85);
-  border: 1px solid var(--line);
+  background: var(--panel-overlay);
+  border: 1px solid var(--line-strong);
   font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -243,6 +301,33 @@ button.ghost {
 .overlay-card .hint {
   margin: 14px 0 0;
   font-size: 12px;
+}
+
+/* Start screen: begin, or set the controls up first. */
+.overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+.overlay-card .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 650;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.overlay-card .secondary:hover {
+  background: rgba(255, 180, 60, 0.26);
+  border-color: var(--accent);
 }
 
 .help-card {
@@ -326,7 +411,7 @@ kbd {
   width: min(430px, calc(100% - 28px));
   padding: 10px 12px;
   background: var(--panel-overlay);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 10px;
   backdrop-filter: blur(6px);
 }
@@ -349,8 +434,8 @@ kbd {
 }
 
 .cp-label {
-  font: 600 9.5px ui-monospace, Menlo, Consolas, monospace;
-  letter-spacing: 0.08em;
+  font: 650 10px ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 0.07em;
   color: var(--fg-dim);
   white-space: nowrap;
 }
@@ -363,50 +448,55 @@ kbd {
   text-align: right;
 }
 
-/* Ignition: a guarded flip switch. Lever up + amber when live. */
-.ignition-switch {
-  width: 34px;
-  height: 62px;
-  padding: 4px;
-  border-radius: 8px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+/*
+ * Ignition: a round push button carrying the IEC 5009 power symbol. Off reads
+ * as unlit metal; on lights the ring and the glyph, so the state is legible
+ * from the colour rather than from a lever position.
+ */
+.power-button {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: radial-gradient(circle at 34% 28%, var(--panel-3), var(--bg) 78%);
+  color: var(--fg-dim);
+  display: grid;
+  place-items: center;
   cursor: pointer;
-  display: flex;
-  align-items: stretch;
+  box-shadow: inset 0 -3px 7px rgba(0, 0, 0, 0.45);
+  transition: color 130ms ease, border-color 130ms ease, box-shadow 130ms ease,
+    background 130ms ease;
 }
 
-.switch-slot {
-  flex: 1;
-  border-radius: 5px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 3px;
-  transition: background 120ms ease;
+/* Material Symbols power_settings_new: a filled path, not a stroked one. */
+.power-glyph {
+  width: 27px;
+  height: 27px;
+  fill: currentColor;
+  stroke: none;
 }
 
-.switch-lever {
-  height: 45%;
-  border-radius: 4px;
-  background: linear-gradient(180deg, var(--fg-dim), var(--line));
-  transition: transform 120ms ease, background 120ms ease;
+.power-button:hover {
+  color: var(--fg);
+  border-color: var(--fg-dim);
 }
 
-.ignition-switch[data-active='true'] {
+.power-button[data-active='true'] {
+  color: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 0 10px rgba(240, 165, 60, 0.35);
+  background: radial-gradient(
+    circle at 34% 28%,
+    rgba(255, 180, 60, 0.3),
+    rgba(255, 180, 60, 0.08) 70%,
+    var(--bg)
+  );
+  box-shadow: 0 0 0 3px rgba(255, 180, 60, 0.14), 0 0 18px rgba(255, 180, 60, 0.45),
+    inset 0 0 10px rgba(255, 180, 60, 0.2);
 }
 
-.ignition-switch[data-active='true'] .switch-slot {
-  justify-content: flex-start;
-  background: rgba(240, 165, 60, 0.12);
-}
-
-.ignition-switch[data-active='true'] .switch-lever {
-  background: linear-gradient(180deg, var(--accent), var(--hot));
+.power-button[data-active='true'] .power-glyph {
+  filter: drop-shadow(0 0 5px rgba(255, 180, 60, 0.75));
 }
 
 /* Starter: a momentary push button that lights while cranking. */
@@ -414,8 +504,8 @@ kbd {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 2px solid var(--line);
-  background: radial-gradient(circle at 35% 30%, var(--panel), var(--bg));
+  border: 2px solid var(--line-strong);
+  background: radial-gradient(circle at 35% 30%, var(--panel-3), var(--bg) 78%);
   color: var(--fg-dim);
   font: 700 10px ui-monospace, Menlo, Consolas, monospace;
   letter-spacing: 0.06em;
@@ -440,12 +530,15 @@ kbd {
 }
 
 .cp-bar-track {
-  width: 18px;
+  width: 20px;
   flex: 1;
   min-height: 56px;
   border-radius: 4px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  /* Lifted off the panel and inset, so an empty bar still reads as a gauge
+     with nothing in it rather than as a gap in the panel. */
+  background: var(--panel-3);
+  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -485,7 +578,7 @@ kbd {
   min-width: 1.2ch;
   text-align: center;
   line-height: 1;
-  text-shadow: 0 0 14px rgba(240, 165, 60, 0.35);
+  text-shadow: 0 0 14px rgba(255, 180, 60, 0.4);
 }
 
 .cp-gear-buttons {
@@ -504,9 +597,49 @@ kbd {
 
 .cp-aux {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   align-items: center;
+}
+
+/*
+ * This is the one control in the panel that opens a dialog rather than
+ * toggling something, and it was previously indistinguishable from the
+ * toggles either side of it. It gets the full width, an icon, an explicit
+ * name and the accent outline so it reads as the way in to setup.
+ */
+.setup-button {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.setup-button:hover {
+  background: rgba(255, 180, 60, 0.26);
+}
+
+.setup-button span:first-of-type {
+  flex: 1;
+}
+
+.pad-glyph {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .cp-aux .throttle-row {
@@ -515,16 +648,21 @@ kbd {
 }
 
 .pedal-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
+  flex: none;
   border-radius: 50%;
-  background: var(--line);
+  border: 1.5px solid currentColor;
+  background: transparent;
+  opacity: 0.45;
   display: inline-block;
 }
 
 .pedal-dot[data-connected='true'] {
   background: var(--ok);
-  box-shadow: 0 0 6px var(--ok);
+  border-color: var(--ok);
+  opacity: 1;
+  box-shadow: 0 0 7px var(--ok);
 }
 
 /* Bindings dialog */
@@ -579,13 +717,16 @@ dialog#bindings-dialog::backdrop {
 .binding-rows {
   display: grid;
   gap: 2px;
-  max-height: min(58vh, 520px);
+  max-height: min(64vh, 600px);
   overflow-y: auto;
+  /* The list keeps growing as actions are added, so it will scroll on shorter
+     screens. Give the bar a visible track rather than letting it vanish. */
   scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 .binding-row {
-  padding: 4px 0;
+  padding: 3px 0;
   border-bottom: 1px solid var(--line);
   font-size: 12.5px;
 }
@@ -657,6 +798,15 @@ dialog#bindings-dialog::backdrop {
   color: var(--fg-dim);
 }
 
+.binding-rows::-webkit-scrollbar {
+  width: 9px;
+}
+
+.binding-rows::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 5px;
+}
+
 .bindings-editor .row {
   display: flex;
   margin-top: 14px;
@@ -677,7 +827,8 @@ dialog#bindings-dialog::backdrop {
 .toggle[data-active='true'] {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(240, 165, 60, 0.1);
+  background: var(--accent-soft);
+  font-weight: 650;
 }
 
 .throttle-row {
@@ -697,8 +848,8 @@ dialog#bindings-dialog::backdrop {
 .diagnostics {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px 14px;
-  font-size: 11px;
+  gap: 4px 14px;
+  font-size: 11.5px;
 }
 
 .diagnostics div {

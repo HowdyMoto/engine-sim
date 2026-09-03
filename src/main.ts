@@ -8,7 +8,6 @@ import { ENGINES, DEFAULT_ENGINE_ID } from './engines';
 import { EngineAudio, loadImpulseResponse } from './audio/engineAudio';
 import { resolveImpulseResponse } from './audio/impulseResponses';
 import { EngineRenderer, DEFAULT_THEME } from './ui/renderer';
-import { THEMES, getTheme, buildTheme, applyCssTheme } from './ui/themes';
 import { compileCustomEngine, customEngineTemplate } from './builder/customEngine';
 import { GaugeCluster } from './ui/gauges';
 import { ScopeCluster } from './ui/scopes';
@@ -81,6 +80,8 @@ class App {
       onToggleHold: () => this.toggleHold(),
       onGearUp: () => this.changeGear(this.control.gear + 1),
       onGearDown: () => this.changeGear(this.control.gear - 1),
+      onEnginePrev: () => this.cycleEngine(-1),
+      onEngineNext: () => this.cycleEngine(1),
       onLayerUp: () => this.stepLayer(1),
       onLayerDown: () => this.stepLayer(-1),
       onTimeWarp: (factor) => {
@@ -135,6 +136,40 @@ class App {
   // on-screen buttons. The new value is computed before sending, because
   // `send` updates `control` in place and reading it back afterwards reports
   // the state just entered rather than the one being left.
+
+  /** Pending debounced engine load, so rapid cycling costs one build. */
+  private engineLoadTimer = 0;
+
+  /**
+   * Step through the engine roster.
+   *
+   * The selection and the banner update immediately, but the load is
+   * debounced: each engine is a full build in the worker, and tapping through
+   * a dozen of them should not queue a dozen builds. The custom engine is not
+   * part of the cycle, since stepping onto it would mean opening an editor.
+   */
+  private cycleEngine(delta: number): void {
+    const select = element<HTMLSelectElement>('engine-select');
+    const current = ENGINES.findIndex((definition) => definition.id === select.value);
+    // Sitting on the custom engine, step in from either end of the roster.
+    const from = current === -1 ? (delta > 0 ? -1 : 0) : current;
+    const next = (((from + delta) % ENGINES.length) + ENGINES.length) % ENGINES.length;
+
+    select.value = ENGINES[next].id;
+    element('edit-custom').hidden = true;
+    this.showBanner(ENGINES[next].label);
+
+    if (this.engineLoadTimer !== 0) clearTimeout(this.engineLoadTimer);
+    this.engineLoadTimer = window.setTimeout(() => {
+      this.engineLoadTimer = 0;
+      this.audio.reset();
+      this.post({
+        type: 'load',
+        engineId: select.value,
+        audioSampleRate: this.audio.sampleRate,
+      });
+    }, 220);
+  }
 
   private stepLayer(delta: number): void {
     this.renderer.layer = Math.max(
@@ -225,40 +260,6 @@ class App {
       this.showBanner(`Quality: ${qualitySelect.value}`);
     });
 
-    const themeSelect = element<HTMLSelectElement>('theme-select');
-    for (const theme of THEMES) {
-      const option = document.createElement('option');
-      option.value = theme.id;
-      option.textContent = theme.label;
-      themeSelect.appendChild(option);
-    }
-    let savedTheme = 'default';
-    try {
-      savedTheme = localStorage.getItem('engine-sim-theme') ?? 'default';
-    } catch {
-      /* storage unavailable */
-    }
-    themeSelect.value = getTheme(savedTheme).id;
-
-    const applyTheme = (id: string): void => {
-      const named = getTheme(id);
-      const theme = buildTheme(named.palette);
-      applyCssTheme(named.palette);
-      this.renderer.setTheme(theme);
-      this.gauges.setTheme(theme);
-      this.scopes.setTheme(theme);
-    };
-    themeSelect.addEventListener('change', () => {
-      applyTheme(themeSelect.value);
-      try {
-        localStorage.setItem('engine-sim-theme', themeSelect.value);
-      } catch {
-        /* storage unavailable */
-      }
-      this.showBanner(`Theme: ${getTheme(themeSelect.value).label}`);
-    });
-    if (themeSelect.value !== 'default') applyTheme(themeSelect.value);
-
     // Camera: wheel zooms about the cursor, drag pans, double-click resets.
     this.engineCanvas.addEventListener(
       'wheel',
@@ -305,6 +306,7 @@ class App {
     });
 
     element('start-button').addEventListener('click', () => void this.start());
+    element('overlay-bindings').addEventListener('click', () => this.openBindings());
     element('help-button').addEventListener('click', () => this.toggleHelp());
     element('help-close').addEventListener('click', () => this.toggleHelp(false));
 
@@ -574,7 +576,9 @@ class App {
       if (pad.pressed.ignition) this.toggleIgnition();
       if (pad.pressed.dyno) this.toggleDyno();
       if (pad.pressed.rpmHold) this.toggleHold();
-      if (pad.pressed.layerUp) this.stepLayer(1);
+      if (pad.pressed.enginePrev) this.cycleEngine(-1);
+    if (pad.pressed.engineNext) this.cycleEngine(1);
+    if (pad.pressed.layerUp) this.stepLayer(1);
       if (pad.pressed.layerDown) this.stepLayer(-1);
       if (pad.pressed.pause) this.togglePause();
     }
@@ -850,16 +854,24 @@ class App {
     return cell;
   }
 
+  /**
+   * Open the bindings dialog. Reachable from the control panel and from the
+   * start screen, so a wheel can be set up before the engine is running. The
+   * render loop polls controllers from the first frame, so capture works here
+   * even though the simulation has not started.
+   */
+  private openBindings(): void {
+    this.refreshBindingRows();
+    this.bindingsOpen = true;
+    this.input.suspended = true;
+    element<HTMLDialogElement>('bindings-dialog').showModal();
+  }
+
   private bindBindingsDialog(): void {
     const dialog = element<HTMLDialogElement>('bindings-dialog');
     this.buildBindingRows();
 
-    element('bindings-setup').addEventListener('click', () => {
-      this.refreshBindingRows();
-      this.bindingsOpen = true;
-      this.input.suspended = true;
-      dialog.showModal();
-    });
+    element('bindings-setup').addEventListener('click', () => this.openBindings());
 
     dialog.addEventListener('close', () => {
       this.bindingsOpen = false;
@@ -969,7 +981,9 @@ class App {
 
     const toggle = (id: string, active: boolean) => {
       const el = document.getElementById(id);
-      if (el !== null) el.dataset.active = String(active);
+      if (el === null) return;
+      el.dataset.active = String(active);
+      if (el.hasAttribute('aria-pressed')) el.setAttribute('aria-pressed', String(active));
     };
 
     toggle('toggle-ignition', state[S.IgnitionEnabled] > 0.5);

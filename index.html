@@ -37,17 +37,21 @@
 
           <button id="edit-custom" class="small" hidden title="Edit the custom engine JSON">Edit</button>
 
-          <label class="field">
-            <span>Theme</span>
-            <select id="theme-select"></select>
-          </label>
-
           <label class="field volume">
             <span>Volume</span>
             <input id="volume" type="range" min="0" max="1.5" step="0.01" value="0.6" />
           </label>
 
-          <button id="help-button" class="ghost" type="button">Controls</button>
+          <button id="help-button" class="ghost" type="button" title="Keyboard reference">Help</button>
+
+          <a class="icon-link" href="https://github.com/HowdyMoto/engine-sim"
+             target="_blank" rel="noopener noreferrer"
+             title="Source on GitHub" aria-label="Source on GitHub">
+            <svg class="gh-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.3 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z" />
+            </svg>
+            <span>GitHub</span>
+          </a>
         </div>
       </header>
 
@@ -61,7 +65,19 @@
               Audio is synthesised from the simulated exhaust pressure waves, so the browser
               needs a click before it will let sound play.
             </p>
-            <button id="start-button" class="primary" type="button">Start engine simulator</button>
+            <div class="overlay-actions">
+              <button id="start-button" class="primary" type="button">Start engine simulator</button>
+              <button id="overlay-bindings" class="secondary" type="button"
+                      title="Bind keys, pedals and controller buttons">
+                <svg class="pad-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M17.5 7.5h-11A4.5 4.5 0 0 0 2 12v0.5A4.5 4.5 0 0 0 6.5 17c1.5 0 2.1-0.7 2.8-1.5l0.5-0.5h4.4l0.5 0.5c0.7 0.8 1.3 1.5 2.8 1.5A4.5 4.5 0 0 0 22 12.5V12a4.5 4.5 0 0 0-4.5-4.5Z" />
+                  <path d="M6.2 12h3.2M7.8 10.4v3.2" />
+                  <circle cx="15.6" cy="11.1" r="1.05" />
+                  <circle cx="17.9" cy="13.3" r="1.05" />
+                </svg>
+                <span>Customise controls</span>
+              </button>
+            </div>
             <p class="hint">
               Then press <kbd>A</kbd> for ignition and hold <kbd>S</kbd> to crank. Some engines
               need a little throttle (<kbd>W</kbd>) to catch, and the big ones take a few
@@ -88,8 +104,11 @@
         <div class="control-panel">
           <div class="cp-main">
             <div class="cp-block">
-              <button id="toggle-ignition" class="ignition-switch" type="button" title="Ignition">
-                <span class="switch-slot"><span class="switch-lever"></span></span>
+              <button id="toggle-ignition" class="power-button" type="button"
+                      title="Ignition" aria-pressed="false" aria-label="Ignition">
+                <svg class="power-glyph" viewBox="0 -960 960 960" aria-hidden="true" focusable="false">
+                  <path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-84 31.5-156.5T197-763l56 56q-44 44-68.5 102T160-480q0 134 93 227t227 93q134 0 227-93t93-227q0-67-24.5-125T707-707l56-56q54 54 85.5 126.5T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-40-360v-440h80v440h-80Z" />
+                </svg>
               </button>
               <span class="cp-label">IGNITION</span>
             </div>
@@ -130,8 +149,16 @@
           <div class="cp-aux">
             <button id="toggle-dyno" class="toggle" type="button">Dyno</button>
             <button id="toggle-hold" class="toggle" type="button">RPM hold</button>
-            <button id="bindings-setup" class="toggle" type="button">
-              Controls&#8230; <span id="bindings-status" class="pedal-dot" title="No controller"></span>
+            <button id="bindings-setup" class="setup-button" type="button"
+                    title="Bind keys, pedals and controller buttons">
+              <svg class="pad-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M17.5 7.5h-11A4.5 4.5 0 0 0 2 12v0.5A4.5 4.5 0 0 0 6.5 17c1.5 0 2.1-0.7 2.8-1.5l0.5-0.5h4.4l0.5 0.5c0.7 0.8 1.3 1.5 2.8 1.5A4.5 4.5 0 0 0 22 12.5V12a4.5 4.5 0 0 0-4.5-4.5Z" />
+                <path d="M6.2 12h3.2M7.8 10.4v3.2" />
+                <circle cx="15.6" cy="11.1" r="1.05" />
+                <circle cx="17.9" cy="13.3" r="1.05" />
+              </svg>
+              <span>Key &amp; controller bindings</span>
+              <span id="bindings-status" class="pedal-dot" title="No controller"></span>
             </button>
             <div class="throttle-row">
               <span>Throttle</span>
@@ -160,7 +187,7 @@
 
     <div id="help" class="overlay" hidden>
       <div class="overlay-card help-card">
-        <h2>Controls</h2>
+        <h2>Keyboard reference</h2>
         <table>
           <tbody>
             <tr><td><kbd>A</kbd></td><td>Toggle ignition <em>(default)</em></td></tr>
@@ -172,6 +199,7 @@
             <tr><td><kbd>Space</kbd> + scroll</td><td>Fine throttle adjustment</td></tr>
             <tr><td><kbd>Shift</kbd></td><td>Clutch, hold <kbd>Space</kbd> too to slip it in slowly <em>(default)</em></td></tr>
             <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Shift up / down <em>(default)</em></td></tr>
+            <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next engine <em>(default)</em></td></tr>
             <tr><td>Rebinding</td><td>The keys above marked with a default, plus any controller input, are remappable via <b>Controls…</b> in the panel</td></tr>
             <tr><td><kbd>Z</kbd> + scroll</td><td>Volume</td></tr>
             <tr><td><kbd>X</kbd> + scroll</td><td>Convolution level</td></tr>
@@ -191,7 +219,7 @@
 
     <dialog id="bindings-dialog">
       <form method="dialog" class="bindings-editor">
-        <h2>Controls</h2>
+        <h2>Key &amp; controller bindings</h2>
         <p class="hint">
           Every action takes a keyboard key and a controller input, and either one
           drives it. Click <b>Bind</b>, then press the key, pedal, paddle or button

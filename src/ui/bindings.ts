@@ -29,6 +29,8 @@ export type ActionId =
   | 'rpmHold'
   | 'gearUp'
   | 'gearDown'
+  | 'enginePrev'
+  | 'engineNext'
   | 'layerUp'
   | 'layerDown'
   | 'pause';
@@ -88,6 +90,20 @@ export const ACTIONS: ActionDef[] = [
     kind: 'edge',
     defaultKey: 'ArrowDown',
     hint: 'One gear per press',
+  },
+  {
+    id: 'enginePrev',
+    label: 'Previous engine',
+    kind: 'edge',
+    defaultKey: '[',
+    hint: 'Step backwards through the roster',
+  },
+  {
+    id: 'engineNext',
+    label: 'Next engine',
+    kind: 'edge',
+    defaultKey: ']',
+    hint: 'Step forwards through the roster',
   },
   {
     id: 'layerUp',
