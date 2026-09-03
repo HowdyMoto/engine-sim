@@ -17,10 +17,10 @@
   },
   "devDependencies": {
     "assemblyscript": "^0.28.20",
-    "esbuild": "^0.24.0",
-    "puppeteer-core": "^23.11.1",
+    "esbuild": "^0.28.2",
+    "puppeteer-core": "^25.10.0",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.4"
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   }
 }
