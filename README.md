@@ -1,26 +1,39 @@
 # Engine Simulator — TypeScript / Web
 
-A port of this repository's C++ engine simulator to TypeScript, running entirely
-in the browser. The physics, thermodynamics and audio synthesis are ported from
-the original source rather than reimplemented: the same constraint solver, the
-same zero-dimensional gas model, the same flame propagation and the same filter
-chain, driving Canvas 2D for the view and an AudioWorklet for sound.
+A real-time internal combustion engine simulator that runs entirely in the
+browser. The physics, thermodynamics and audio synthesis are ported from
+[ange-yaghi/engine-sim](https://github.com/ange-yaghi/engine-sim) rather than
+reimplemented: the same constraint solver, the same zero-dimensional gas model,
+the same flame propagation and the same filter chain, driving Canvas 2D for the
+view and an AudioWorklet for sound.
+
+This repository holds the web port only. Paths in the "What maps to what" table
+below refer to the upstream C++ repository, not to anything here.
 
 ```
 npm install
 npm run dev        # development server
 npm run build      # production bundle into dist/
+npm run preview    # serve the production bundle locally
 npm test           # simulation test suite
+npm run typecheck  # tsc --noEmit
 npm run benchmark  # headless performance probe (JS vs WASM)
 npm run build:wasm # recompile the AssemblyScript gas kernels
 ```
+
+## Deploying
+
+`npm run build` writes a fully static bundle to `dist/`. Every asset reference
+is relative and `vite.config.ts` sets `base: './'`, so the contents of `dist/`
+can be dropped into any directory on any web server and served from a
+subdirectory without further configuration. No server-side code is involved.
 
 Audio needs a user gesture, so the page opens behind a **Start** button. After
 that, press <kbd>A</kbd> for ignition and hold <kbd>S</kbd> to crank.
 
 ## What maps to what
 
-| Web app | Original |
+| This repository | Upstream C++ project |
 | --- | --- |
 | `src/physics/` | `dependencies/submodules/simple-2d-constraint-solver` |
 | `src/engine/` | `include/` + `src/` (crankshaft, piston, gas system, chambers, …) |
@@ -230,15 +243,37 @@ recurrence.
 
 ## Controls
 
-Same keyboard scheme as the original — press **Controls** in the header for
-the full table. The control panel below the scopes is a racing-style input
-cluster: ignition switch, momentary starter button, throttle and clutch
-telemetry bars, and a gear indicator with paddle buttons.
+The control panel sits over the lower left of the engine view: ignition switch,
+momentary starter button, throttle and clutch telemetry bars, and a gear
+indicator with paddle buttons. The strip beneath the view is output only -
+scopes, gauges and diagnostics.
 
-Sim racing pedals and shifters work through the Gamepad API: open
-**Pedals…**, click Bind, and press the pedal or paddle you want. Binding is
-capture-based (`src/ui/gamepad.ts`) so any brand works regardless of which
-axis the pedal lives on, where it rests, or which direction it runs -
-calibration follows the captured movement and keeps widening as you drive.
-Pedal and keyboard inputs merge: whichever asks for more throttle (or more
-clutch slip) wins. Bindings persist per device in localStorage.
+Every action carries **two** bindings, a keyboard key and a controller input,
+and either one drives it independently. Open **Controls…** in the panel to
+rebind any of them. The bindable actions are throttle, clutch, starter,
+ignition, dynamometer, RPM hold, shift up and down, both view-layer steps, and
+pause. Press **Controls** in the header for the fixed keys that are not
+rebindable (throttle presets, scroll modifiers, time warp, fullscreen).
+
+Sim racing wheels, pedal sets and shifters work through the Gamepad API.
+Binding is capture-based (`src/ui/bindings.ts`, `src/ui/gamepad.ts`) so any
+brand works regardless of which axis a pedal lives on, where it rests, or which
+direction it travels: calibration follows the captured movement and keeps
+widening its range as you drive. A button can drive an analogue action and a
+pedal can drive an on/off one, so a rig with only paddles still works.
+
+Controller and keyboard stay live at the same time - whichever asks for more
+throttle, or more clutch slip, wins - and the starter engages while any of the
+key, the on-screen button or the bound controller input is held.
+
+Bindings persist in `localStorage` under a versioned key and are re-validated
+on load, so a corrupt or outdated entry falls back to its default rather than
+breaking the controls. If the browser refuses storage the app still runs and
+the dialog says the bindings will not survive the session.
+
+## Licence and credit
+
+The simulator this is ported from is
+[engine-sim](https://github.com/ange-yaghi/engine-sim) by Ange Yaghi, MIT
+licensed. That licence and copyright notice are retained in `LICENSE` and cover
+this port as a derivative work.
