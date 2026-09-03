@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Engine Simulator</title>
+    <meta
+      name="description"
+      content="Real-time internal combustion engine simulation and audio synthesis, running in the browser."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Ctext%20y%3D%2214%22%20font-size%3D%2214%22%3E%F0%9F%94%A7%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./src/ui/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="title">
+          <h1>Engine Simulator</h1>
+          <span id="engine-name" class="engine-name">—</span>
+        </div>
+
+        <div class="topbar-controls">
+          <label class="field">
+            <span>Engine</span>
+            <select id="engine-select"></select>
+          </label>
+
+          <label class="field">
+            <span>Quality</span>
+            <select id="quality-select">
+              <option value="auto" selected>Auto</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+
+          <button id="edit-custom" class="small" hidden title="Edit the custom engine JSON">Edit</button>
+
+          <label class="field">
+            <span>Theme</span>
+            <select id="theme-select"></select>
+          </label>
+
+          <label class="field volume">
+            <span>Volume</span>
+            <input id="volume" type="range" min="0" max="1.5" step="0.01" value="0.6" />
+          </label>
+
+          <button id="help-button" class="ghost" type="button">Controls</button>
+        </div>
+      </header>
+
+      <main class="stage">
+        <canvas id="engine-canvas"></canvas>
+
+        <div id="start-overlay" class="overlay">
+          <div class="overlay-card">
+            <h2>Start the simulator</h2>
+            <p>
+              Audio is synthesised from the simulated exhaust pressure waves, so the browser
+              needs a click before it will let sound play.
+            </p>
+            <button id="start-button" class="primary" type="button">Start engine simulator</button>
+            <p class="hint">
+              Then press <kbd>A</kbd> for ignition and hold <kbd>S</kbd> to crank. Some engines
+              need a little throttle (<kbd>W</kbd>) to catch, and the big ones take a few
+              seconds to spin up.
+            </p>
+          </div>
+        </div>
+
+        <div id="status-banner" class="status-banner" hidden></div>
+
+        <aside class="readouts">
+          <div class="readout"><span>RPM</span><b id="r-rpm">0</b></div>
+          <div class="readout"><span>Throttle plate</span><b id="r-throttle">0%</b></div>
+          <div class="readout"><span>Vacuum</span><b id="r-manifold">0.0 inHg</b></div>
+          <div class="readout"><span>Intake AFR</span><b id="r-afr">0.0</b></div>
+          <div class="readout"><span>Gear</span><b id="r-gear">N</b></div>
+          <div class="readout"><span>Clutch</span><b id="r-clutch">100%</b></div>
+          <div class="readout"><span>Speed</span><b id="r-speed">0 mph</b></div>
+          <div class="readout"><span>Fuel burned</span><b id="r-fuel">0.0 mL</b></div>
+          <div class="readout"><span>Fuel rate</span><b id="r-fuel-rate">0.0 L/h</b></div>
+          <div class="readout"><span>Displacement</span><b id="r-displacement">—</b></div>
+        </aside>
+
+        <div class="control-panel">
+          <div class="cp-main">
+            <div class="cp-block">
+              <button id="toggle-ignition" class="ignition-switch" type="button" title="Ignition">
+                <span class="switch-slot"><span class="switch-lever"></span></span>
+              </button>
+              <span class="cp-label">IGNITION</span>
+            </div>
+
+            <div class="cp-block">
+              <button id="toggle-starter" class="starter-button" type="button" title="Hold to crank">
+                START
+              </button>
+              <span class="cp-label">STARTER</span>
+            </div>
+
+            <div class="cp-block cp-bar-block">
+              <div class="cp-bar-track">
+                <div id="bar-throttle" class="cp-bar-fill cp-throttle"></div>
+              </div>
+              <span class="cp-label">THR <b id="bar-throttle-pct">0</b></span>
+            </div>
+
+            <div class="cp-block cp-bar-block">
+              <div class="cp-bar-track">
+                <div id="bar-clutch" class="cp-bar-fill cp-clutch"></div>
+              </div>
+              <span class="cp-label">CLU <b id="bar-clutch-pct">0</b></span>
+            </div>
+
+            <div class="cp-block cp-gear-block">
+              <div class="cp-gear-row">
+                <div class="cp-gear-buttons">
+                  <button id="gear-up" type="button" title="Shift up">&#9650;</button>
+                  <button id="gear-down" type="button" title="Shift down">&#9660;</button>
+                </div>
+                <b id="gear-display" class="cp-gear-digit">N</b>
+              </div>
+              <span class="cp-label">GEAR</span>
+            </div>
+          </div>
+
+          <div class="cp-aux">
+            <button id="toggle-dyno" class="toggle" type="button">Dyno</button>
+            <button id="toggle-hold" class="toggle" type="button">RPM hold</button>
+            <button id="bindings-setup" class="toggle" type="button">
+              Controls&#8230; <span id="bindings-status" class="pedal-dot" title="No controller"></span>
+            </button>
+            <div class="throttle-row">
+              <span>Throttle</span>
+              <input id="throttle" type="range" min="0" max="1" step="0.001" value="0" />
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <section class="instruments">
+        <canvas id="scope-canvas"></canvas>
+        <canvas id="gauge-canvas"></canvas>
+
+        <div class="diagnostics">
+          <div><span>Sim rate</span><b id="d-frequency">—</b></div>
+          <div><span>Fluid steps</span><b id="d-fluid">—</b></div>
+          <div><span>Frame load</span><b id="d-load">—</b></div>
+          <div><span>Audio latency</span><b id="d-latency">—</b></div>
+          <div><span>Steps / frame</span><b id="d-steps">—</b></div>
+          <div><span>Time warp</span><b id="d-warp">1x</b></div>
+          <div><span>Audio drops</span><b id="d-drops">0</b></div>
+          <div><span>Gas kernels</span><b id="d-wasm">—</b></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="help" class="overlay" hidden>
+      <div class="overlay-card help-card">
+        <h2>Controls</h2>
+        <table>
+          <tbody>
+            <tr><td><kbd>A</kbd></td><td>Toggle ignition <em>(default)</em></td></tr>
+            <tr><td><kbd>S</kbd></td><td>Hold for starter <em>(default)</em></td></tr>
+            <tr><td><kbd>D</kbd></td><td>Enable dynamometer <em>(default)</em></td></tr>
+            <tr><td><kbd>H</kbd></td><td>Enable RPM hold, needs the dyno enabled <em>(default)</em></td></tr>
+            <tr><td><kbd>G</kbd> + scroll</td><td>Change hold speed</td></tr>
+            <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></td><td>Throttle presets</td></tr>
+            <tr><td><kbd>Space</kbd> + scroll</td><td>Fine throttle adjustment</td></tr>
+            <tr><td><kbd>Shift</kbd></td><td>Clutch, hold <kbd>Space</kbd> too to slip it in slowly <em>(default)</em></td></tr>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Shift up / down <em>(default)</em></td></tr>
+            <tr><td>Rebinding</td><td>The keys above marked with a default, plus any controller input, are remappable via <b>Controls…</b> in the panel</td></tr>
+            <tr><td><kbd>Z</kbd> + scroll</td><td>Volume</td></tr>
+            <tr><td><kbd>X</kbd> + scroll</td><td>Convolution level</td></tr>
+            <tr><td><kbd>C</kbd> + scroll</td><td>High frequency gain</td></tr>
+            <tr><td><kbd>V</kbd> + scroll</td><td>Low frequency noise</td></tr>
+            <tr><td><kbd>B</kbd> + scroll</td><td>High frequency noise</td></tr>
+            <tr><td><kbd>N</kbd> + scroll</td><td>Simulation frequency</td></tr>
+            <tr><td><kbd>M</kbd> / <kbd>,</kbd></td><td>Change view layer <em>(default)</em></td></tr>
+            <tr><td><kbd>1</kbd>–<kbd>5</kbd></td><td>Simulation time warp</td></tr>
+            <tr><td><kbd>F</kbd></td><td>Fullscreen</td></tr>
+            <tr><td><kbd>P</kbd></td><td>Pause <em>(default)</em></td></tr>
+          </tbody>
+        </table>
+        <button id="help-close" class="primary" type="button">Close</button>
+      </div>
+    </div>
+
+    <dialog id="bindings-dialog">
+      <form method="dialog" class="bindings-editor">
+        <h2>Controls</h2>
+        <p class="hint">
+          Every action takes a keyboard key and a controller input, and either one
+          drives it. Click <b>Bind</b>, then press the key, pedal, paddle or button
+          you want. Pedal calibration follows the movement, so any rest position or
+          travel direction works, and it keeps refining as you drive.
+          <span id="bindings-devices"></span>
+        </p>
+
+        <div id="bindings-persist-warning" class="error" hidden>
+          Browser storage is unavailable, so these bindings will be lost when the
+          page closes.
+        </div>
+
+        <div class="bindings-head">
+          <span>Action</span>
+          <span>Keyboard</span>
+          <span>Controller</span>
+        </div>
+        <div id="bindings-rows" class="binding-rows"></div>
+
+        <div class="row">
+          <button type="button" id="bindings-reset">Reset to defaults</button>
+          <span class="spacer"></span>
+          <button value="close" class="primary">Done</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="custom-dialog">
+      <form method="dialog" class="custom-editor">
+        <h2>Custom engine</h2>
+        <p class="hint">
+          Describe an engine as JSON — layout, geometry, firing order, cams, flow.
+          Crank phasing is derived from the firing order. Unset fields get sensible
+          defaults.
+        </p>
+        <textarea id="custom-json" spellcheck="false" rows="22"></textarea>
+        <div id="custom-error" class="error" hidden></div>
+        <div class="row">
+          <button value="template" id="custom-template" type="button">Load template</button>
+          <span class="spacer"></span>
+          <button value="cancel">Cancel</button>
+          <button value="apply" id="custom-apply" type="button" class="primary">Build &amp; run</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

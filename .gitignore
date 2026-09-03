@@ -1,15 +1,17 @@
-# Ignore user's workspace
-workspace/
+# Dependencies
+node_modules/
 
-# Build directory
-build/
+# Build output
+dist/
 
-# clangd cache and code completion files
+# Vite
+.vite/
+*.local
+
+# Editor / tooling caches
 .cache
-compile_commands.json
-
-# Blender temporary files
-*.blend1
-
-# Claude Code local artifacts
 .claude/
+
+# OS noise
+Thumbs.db
+.DS_Store
