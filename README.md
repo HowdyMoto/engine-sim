@@ -1,22 +1,93 @@
-# Engine Simulator
-![Alt text](docs/public/screenshots/screenshot_v01.png?raw=true)
----
-# Engine Simulator has moved!
+# Engine Simulator — Web Edition
 
-To get the newest releases of the game, [click here](https://github.com/Engine-Simulator/engine-sim-community-edition).
----
+![Engine Simulator](docs/public/screenshots/screenshot_v01.png?raw=true)
 
-## Web version
+A fork of **[AngeTheGreat's Engine Simulator](https://github.com/ange-yaghi/engine-sim)**,
+ported from C++ to TypeScript and WebAssembly so that it runs in a browser.
 
-There is a TypeScript port of this simulator in [`web/`](web) that runs in the
-browser — the same physics, gas model and audio synthesis, with the simulation
-on a Web Worker and sound through an AudioWorklet. See [web/README.md](web/README.md).
+> ### This is someone else's simulator.
+>
+> The constraint solver, the zero-dimensional gas model, the flame propagation,
+> the exhaust convolution, the synthesizer, the engine definitions — every part
+> of this that is actually hard was designed, derived and tuned by
+> **Ange Yaghi (AngeTheGreat)**. This fork moves that work to a new runtime.
+> It does not improve on it, and it does not replace it.
+>
+> - **Original repository:** https://github.com/ange-yaghi/engine-sim
+> - **Where the project lives now:** https://github.com/Engine-Simulator/engine-sim-community-edition
+> - **The video that started it all:** https://youtu.be/RKT-sKtR970
+
+## License
+
+**MIT — Copyright 2022 AngeTheGreat (Ange Yaghi).** See [LICENSE](LICENSE).
+
+That file is unchanged, and it governs everything in this repository, the web
+port included. This fork claims no separate copyright, adds no additional terms
+and imposes no further restrictions. If you use any of this, the notice that
+travels with it is his.
+
+## Thank you, Ange
+
+It is difficult to overstate how much work is embedded in this codebase, or how
+little of it is visible from the outside.
+
+Anyone can write something that plays an engine noise. What is here is an actual
+engine: rigid bodies joined by constraints and solved every step, cylinders
+modelled as control volumes exchanging mass and energy through ports whose flow
+depends on valve lift, combustion that propagates as a flame front through a
+turbulent charge whose turbulence depends on how the intake filled it, and
+exhaust convolved through measured impulse responses. The sound is not a sample
+and not a synth patch. It is the pressure at the end of the pipe, because the
+pressure at the end of the pipe was simulated. Change the firing order and it
+sounds different for the right reason.
+
+Getting that to run in real time — and getting it to sound like the real thing
+rather than like a physics demo — is years of domain knowledge and taste. Ange
+did all of it, explained it publicly, and then gave it away under a license
+permissive enough that a stranger's fork like this one could exist at all. The
+engine definitions alone — the LS, the Merlin V-1650, the 412 T2, the radials,
+the Hayabusa — represent a remarkable amount of patient, careful work that
+nobody was ever going to thank him for.
+
+**Thank you.** Please go [watch the video](https://youtu.be/RKT-sKtR970), star
+[the original repository](https://github.com/ange-yaghi/engine-sim), and follow
+[the community edition](https://github.com/Engine-Simulator/engine-sim-community-edition),
+where the project continues. The supporters who funded the original are still
+credited at the bottom of this file, where they belong.
+
+## What this fork adds
+
+A browser port, in [`web/`](web). Same physics, same gas model, same audio
+synthesis — ported from the original C++ rather than reimplemented — with the
+simulation on a Web Worker, sound through an AudioWorklet, the two hot paths
+(the gas system and the constraint solve) compiled to WebAssembly, and the view
+drawn on Canvas 2D.
 
 ```
 cd web && npm install && npm run dev
 ```
 
-This fork also drops two submodules that together were 1.63 GB of a 1.5 GB
+Twenty-one engines are bundled, covering every distinct definition in
+`assets/engines/`, and you can build your own from JSON in the browser. Every
+engine in the roster runs above realtime at full fidelity on a desktop. The
+architecture notes, the list of deliberate deviations from the C++, and the two
+upstream bugs the port turned up are in **[web/README.md](web/README.md)**.
+
+### Who wrote the port
+
+**Claude** (Anthropic's Claude Opus 5, driving
+[Claude Code](https://claude.com/claude-code)) wrote it in a single working
+session of roughly four to five hours, using the C++ sources in this repository
+as the reference: about 20,000 lines of TypeScript across 93 files, plus the
+AssemblyScript kernels. The commits are attributed accordingly.
+
+That figure says something about the tooling and nothing at all about the
+simulator. The port had a complete, correct, working implementation in front of
+it to read. Ange had a blank file.
+
+### Submodules
+
+This fork drops two submodules that together were 1.63 GB of a 1.5 GB
 repository: `delta-studio` (the DirectX renderer, 1.4 GB of prebuilt binaries
 and an unrelated demo app) and `piranha` (the `.mr` compiler, 253 MB of 3D
 models in its history). Neither is used by the browser port. The C++ simulation
@@ -28,6 +99,9 @@ git submodule add https://github.com/ange-yaghi/delta-studio dependencies/submod
 git submodule add https://github.com/ange-yaghi/piranha.git dependencies/submodules/piranha
 ```
 
+---
+
+*Everything below this line is the original README, written by Ange Yaghi.*
 
 ## What is this?
 
