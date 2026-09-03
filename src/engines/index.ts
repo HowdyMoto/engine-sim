@@ -23,9 +23,15 @@ import { hondaVfr750 } from './hondaVfr750';
 import { ducati999 } from './ducati999';
 import { w8, w12, w16, w9 } from './wFamily';
 import { v3Sixty, v5SeventyTwo } from './oddCylinderV';
+import { hondaRc166, hondaRc174 } from './hondaSix';
+import { hondaRc30 } from './hondaRc30';
 
+/**
+ * The roster, sorted by label so the picker and the next/previous engine
+ * bindings both run in alphabetical order. Add new engines anywhere; the sort
+ * decides where they land.
+ */
 export const ENGINES: EngineDefinition[] = [
-  // V8s
   gmLs,
   chevy454,
   smallBoreV8,
@@ -33,38 +39,35 @@ export const ENGINES: EngineDefinition[] = [
   ferrariF136,
   flatPlaneV8,
   ferrari412T2,
-  // Larger vees
   lfaV10,
   merlinV12,
-  // Inlines
   toyota2jz,
   bmwM52,
   audiI5,
   hondaVtec,
-  // V6s
   v6Sixty,
   v6EvenFire,
   v6OddFire,
-  // Flats and twins
   subaruEj25,
   subaruEj25Uh,
   hayabusa,
   harleyShovelhead,
   ducati999,
   hondaVfr750,
+  hondaRc30,
+  hondaRc166,
+  hondaRc174,
   kohlerCh750,
   hondaTrx520,
-  // W engines
   w8,
   w9,
   w12,
   w16,
-  // Oddballs
   v3Sixty,
   v5SeventyTwo,
   radial5,
   radial9,
-];
+].sort((a, b) => a.label.localeCompare(b.label, 'en'));
 
 export const DEFAULT_ENGINE_ID = gmLs.id;
 
@@ -95,6 +98,9 @@ export {
   harleyShovelhead,
   ducati999,
   hondaVfr750,
+  hondaRc30,
+  hondaRc166,
+  hondaRc174,
   kohlerCh750,
   hondaTrx520,
   w8,
